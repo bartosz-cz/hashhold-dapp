@@ -1,291 +1,295 @@
 import {
   ContractId,
+  Hbar,
   TransactionReceipt,
-  TransactionResponse,
-  AccountId,
-  PrivateKey,
+  TransactionId,
+  AccountAllowanceApproveTransaction,
+  TokenId,
 } from "@hashgraph/sdk";
 
 import { WalletInterface } from "../wallets/walletInterface";
 import { ContractFunctionParameterBuilder } from "../wallets/contractFunctionParameterBuilder";
-import { MirrorNodeClient } from "../wallets/mirrorNodeClient";
-import { appConfig } from "../../config";
-import { networkConfig } from "../../config/networks";
-import { decrypt } from "eciesjs";
-import { ethers, JsonRpcProvider } from "ethers";
-
-const mirrorNodeClient = new MirrorNodeClient(appConfig.networks.testnet);
-
-interface WalletResponse {
-  receipt: TransactionReceipt;
-  result: TransactionResponse;
+export interface StakeParams {
+  tokenId: string; // Address of the token (Use "0x00..." for native HBAR)
+  amount: number; // Amount of tokens to stake
+  duration: number; // Duration in seconds for staking
+  boostTokenAmount: number; // Boost token amount
+  priceIds: string[]; // Price feed IDs to fetch from Hermes/Pyth
 }
 
-interface HederaClientOptions {
+export interface WithdrawParams {
+  stakeId: number;
+}
+
+export interface TokenAssociateParams {
+  tokenAddress: string;
+}
+
+export interface SetPoolFeeParams {
+  token1: string;
+  token2: string;
+  fee: number;
+}
+
+export interface StartNewEpochParams {
+  endTime: number; // Unix timestamp in seconds
+}
+
+export interface FinalizeEpochParams {
+  epochId: number;
+}
+
+/**
+ * Interface for initializing HederaContractClient.
+ */
+export interface HederaClientOptions {
   contractId: string;
-  hermesEndpoint?: string;
+  hermesEndpoint?: string; // Defaults to "https://hermes.pyth.network"
 }
 
-interface Message {
-  id: number;
-  sender: "user" | "assistant";
-  text: string;
-}
-
-interface SessionData {
-  privateKey: string;
-  publicKey: string;
-  accountId: string;
-}
-
+/**
+ * HederaContractClient is responsible for interacting with a Hedera-based smart contract.
+ * It uses a provided WalletInterface to sign and send transactions.
+ */
 export class HederaContractClient {
   private contractId: ContractId;
   private hermesEndpoint: string;
-  private wallet: WalletInterface | null;
+  private walletInterface: WalletInterface | null;
 
-  constructor(wallet: WalletInterface | null, options: HederaClientOptions) {
-    this.contractId = ContractId.fromString(options.contractId);
-    this.hermesEndpoint =
-      options.hermesEndpoint || "https://hermes.pyth.network";
-    this.wallet = wallet;
+  constructor(
+    walletInterface: WalletInterface | null,
+    options: HederaClientOptions
+  ) {
+    const { contractId, hermesEndpoint = "https://hermes.pyth.network" } =
+      options;
+    this.contractId = ContractId.fromString(contractId);
+    this.hermesEndpoint = hermesEndpoint;
+    this.walletInterface = walletInterface;
   }
 
-  public async startSession(accountId: string, message: string) {
-    const sessionPrivateKeyObj = PrivateKey.generateECDSA();
-    const sessionPublicKey = sessionPrivateKeyObj.publicKey.toStringRaw();
-    const sessionPrivateKey = sessionPrivateKeyObj.toStringRaw();
+  private async getPriceUpdates(priceIds: string[]): Promise<Uint8Array[]> {
+    const timestamp = Math.floor(Date.now() / 1000) - 5;
+    const baseURL = "https://hermes.pyth.network/v2/updates/price";
+    const id =
+      "0x3728e591097635310e6341af53db8b7ee42da9b3a8d918f9463ce9cca886dfbd";
+    const url = `${baseURL}/${timestamp}?ids[]=${id}`;
 
-    sessionStorage.setItem("sessionPrivateKey", sessionPrivateKey);
-    sessionStorage.setItem("sessionPublicKey", sessionPublicKey);
-
-    if (!this.wallet) throw new Error("Wallet interface not available.");
-
-    const params = new ContractFunctionParameterBuilder().addParam({
-      type: "string",
-      name: "publicKey",
-      value: sessionPublicKey,
-    });
-
-    await this.wallet.executeContractFunction(
-      this.contractId,
-      "depositAndNotifyBackend",
-      params,
-      5,
-      2_500_000,
-      false
-    );
-
-    return await this.listenForSessionCreation(
-      sessionPrivateKey,
-      accountId,
-      message
-    );
-  }
-
-  private async listenForSessionCreation(
-    sessionPrivateKey: string,
-    accountId: string,
-    message: string
-  ): Promise<any> {
-    return await new Promise((resolve, reject) => {
-      const provider = new JsonRpcProvider(networkConfig.testnet.jsonRpcUrl);
-
-      const contract = new ethers.Contract(
-        networkConfig.testnet.contractAddress,
-        [
-          "event SessionAccountCreated(address indexed user, string sessionData)",
-          "event DataUploaded(address indexed user, string hfsFileId)",
-        ],
-        provider
-      );
-
-      contract.once("SessionAccountCreated", async (user, sessionData) => {
-        try {
-          const decrypted = await this.decryptSessionData(
-            sessionData,
-            sessionPrivateKey
-          );
-
-          sessionStorage.setItem("sessionPrivateKey", decrypted.privateKey);
-          sessionStorage.setItem("sessionPublicKey", decrypted.publicKey);
-          sessionStorage.setItem("sessionAccountId", decrypted.accountId);
-
-          if (!this.wallet) return resolve(null);
-
-          await this.wallet.setOperator();
-
-          const info = await mirrorNodeClient.getAccountInfo(
-            AccountId.fromString(accountId)
-          );
-
-          const fileResponse = await this.wallet.createFile(
-            info.key,
-            networkConfig.testnet.backendKey,
-            message,
-            true
-          );
-
-          if (typeof fileResponse === "string") return resolve(fileResponse);
-
-          const fileId = fileResponse.receipt.fileId?.toString() || "";
-          sessionStorage.setItem("fileId", fileId);
-
-          const uploadParams = new ContractFunctionParameterBuilder()
-            .addParam({
-              type: "address",
-              name: "owner",
-              value: info.evm_address,
-            })
-            .addParam({ type: "string", name: "hfsFileId", value: fileId });
-
-          await this.wallet.executeContractFunction(
-            this.contractId,
-            "uploadMedicalData",
-            uploadParams,
-            0,
-            2_500_000,
-            true
-          );
-          contract.on(
-            "DataUploaded",
-            async (user: string, hfsFileId: string) => {
-              if (user.toLowerCase() !== info.evm_address.toLowerCase()) {
-                try {
-                  const response = await this.wallet?.readFile(hfsFileId, true);
-                  if (response) {
-                    const lines = response.trim().split("\n");
-                    return resolve(lines[lines.length - 1]);
-                  }
-                } catch (error: any) {
-                  console.error("Error reading file:", error);
-                  return reject(error);
-                }
-              }
-            }
-          );
-        } catch (error) {
-          console.error("❌ Error during session creation:", error);
-          reject(error);
-        }
-      });
-    });
-  }
-
-  private async decryptSessionData(
-    sessionData: string,
-    sessionPrivateKey: string
-  ): Promise<SessionData> {
-    const userPrivateKeyBuffer = ethers.getBytes("0x" + sessionPrivateKey);
-    const encryptedBuffer = Uint8Array.from(atob(sessionData), (c) =>
-      c.charCodeAt(0)
-    );
-    const decryptedBuffer = await decrypt(
-      userPrivateKeyBuffer,
-      encryptedBuffer
-    );
-    return JSON.parse(new TextDecoder().decode(decryptedBuffer));
-  }
-
-  public async uploadMedicalData(accountId: string, messages: Message[]) {
-    if (!this.wallet) return "No wallet";
-
-    const userMessagesText = messages
-      .filter((m) => m.sender === "user")
-      .map((m) => m.text.replace(/\n/g, " "))
-      .join("\n");
-
-    if (!sessionStorage.getItem("sessionAccountId")) {
-      return this.startSession(accountId, userMessagesText);
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const sessionId = sessionStorage.getItem("sessionAccountId")!;
-
-    const events = await mirrorNodeClient.getContractEventsbyAccount(sessionId);
-    const fileId = events.flat().find((ev) => ev.name === "DataUploaded")
-      ?.args.hfsFileId;
-
-    if (!fileId) throw new Error("No file ID found.");
-
-    const response = await this.wallet.updateFile(
-      fileId,
-      userMessagesText,
-      true
-    );
-
-    if (typeof response === "string") return response;
-
-    const info = await mirrorNodeClient.getAccountInfo(
-      AccountId.fromString(accountId)
-    );
-
-    const uploadParams = new ContractFunctionParameterBuilder()
-      .addParam({ type: "address", name: "owner", value: info.evm_address })
-      .addParam({ type: "string", name: "hfsFileId", value: fileId });
-    console.log("started uploadMedicalData");
-    await this.wallet.executeContractFunction(
-      this.contractId,
-      "uploadMedicalData",
-      uploadParams,
-      0,
-      2_500_000,
-      true
-    );
-    console.log("started primise");
-    return await new Promise((resolve, reject) => {
-      const provider = new JsonRpcProvider(networkConfig.testnet.jsonRpcUrl);
-
-      const contract = new ethers.Contract(
-        networkConfig.testnet.contractAddress,
-        [
-          "event SessionAccountCreated(address indexed user, string sessionData)",
-          "event DataUploaded(address indexed user, string hfsFileId)",
-        ],
-        provider
-      );
-
-      console.log("sterted waiting");
-      contract.on("DataUploaded", async (user: string, hfsFileId: string) => {
-        console.log("upl:  " + user);
-        console.log("upl:  " + info.evm_address.toLowerCase());
-        if (user.toLowerCase() !== info.evm_address.toLowerCase()) {
-          try {
-            const response = await this.wallet?.readFile(hfsFileId, true);
-            if (response) {
-              const lines = response.trim().split("\n");
-              return resolve(lines[lines.length - 1]);
-            }
-          } catch (error: any) {
-            console.error("Error reading file:", error);
-            return reject(error);
-          }
-        }
-      });
+    const res = await response.json();
+    const data = res.binary.data.map((d: string) => {
+      if (typeof d === "string") {
+        return new Uint8Array(
+          d
+            .replace(/^0x/, "")
+            .match(/.{1,2}/g)!
+            .map((byte) => parseInt(byte, 16))
+        );
+      } else {
+        throw new Error("Unsupported data format in priceUpdates.binary.data");
+      }
     });
+
+    console.log(res);
+    return data;
   }
 
-  public async getMedicalData(): Promise<string> {
-    if (this.wallet !== null) {
-      let wallet: number = 0;
+  public async stakeTokens(params: StakeParams): Promise<object | string> {
+    if (this.walletInterface !== null) {
+      let tokenDecimals = 0;
 
-      const paramBuilder = new ContractFunctionParameterBuilder();
+      const { tokenId, amount, duration, boostTokenAmount, priceIds } = params;
+      let payableValue: number = 0;
+      let priceUpdateData: Uint8Array[] = [];
+      if (tokenId === "0x0000000000000000000000000000000000000000") {
+        tokenDecimals = 8;
+        priceUpdateData = await this.getPriceUpdates(priceIds);
+        payableValue = amount;
+      } else {
+        tokenDecimals = 6;
+        await this.walletInterface.approveTokenAllowance(
+          this.contractId,
+          amount * 10 ** tokenDecimals,
+          TokenId.fromSolidityAddress(tokenId)
+        );
+      }
+      console.log("calllllllllllllllll");
+      const paramBuilder = new ContractFunctionParameterBuilder()
+        .addParam({ type: "address", name: "tokenId", value: tokenId })
+        .addParam({
+          type: "uint256",
+          name: "amount",
+          value: amount * 10 ** tokenDecimals,
+        })
+        .addParam({ type: "uint256", name: "duration", value: duration })
+        .addParam({
+          type: "uint256",
+          name: "boostTokenAmount",
+          value: boostTokenAmount,
+        })
+        .addParam({
+          type: "bytes[]",
+          name: "priceUpdate",
+          value: priceUpdateData,
+        });
 
       try {
-        const response = await this.wallet.executeContractFunction(
+        const response = await this.walletInterface.executeContractFunction(
           this.contractId,
-          "getMedicalData",
+          "stake",
+          paramBuilder,
+          payableValue,
+          2_500_000
+        );
+
+        return response;
+      } catch (error: any) {
+        console.error(
+          "Error executing stake transaction:",
+          error.message || error
+        );
+        throw error;
+      }
+    } else {
+      return "No wallet";
+    }
+  }
+
+  public async withdrawTokens(
+    params: WithdrawParams
+  ): Promise<object | string> {
+    if (this.walletInterface !== null) {
+      const { stakeId } = params;
+      console.log(stakeId);
+      // Build parameters using the provided builder
+      const paramBuilder = new ContractFunctionParameterBuilder().addParam({
+        type: "uint256",
+        name: "stakeId",
+        value: stakeId,
+      });
+
+      // Execute the contract function via the wallet interface
+      try {
+        const txId = await this.walletInterface.executeContractFunction(
+          this.contractId,
+          "Unstake",
+          paramBuilder,
+          0, // value=0 since 'withdraw' is non-payable
+          2_500_000 // Example gas limit; adjust as necessary
+        );
+
+        return txId;
+      } catch (error: any) {
+        console.error(
+          "Error executing withdraw transaction:",
+          error.message || error
+        );
+        throw error;
+      }
+    } else {
+      return "No wallet";
+    }
+  }
+
+  public async associateToken(
+    params: TokenAssociateParams
+  ): Promise<object | string> {
+    if (this.walletInterface !== null) {
+      const { tokenAddress } = params;
+
+      const paramBuilder = new ContractFunctionParameterBuilder().addParam({
+        type: "address",
+        name: "tokenId",
+        value: tokenAddress,
+      });
+
+      try {
+        const txId = await this.walletInterface.executeContractFunction(
+          this.contractId,
+          "tokenAssociate",
           paramBuilder,
           0,
-          2_500_000,
-          true
+          2_500_000
         );
-        console.log("after get medical data");
-        if (typeof response === "string") {
-          return "FAILED";
-        } else {
-          return response.result.toString();
-        }
+
+        return txId;
       } catch (error: any) {
-        return "FAILED";
+        console.error(
+          "Error executing withdraw transaction:",
+          error.message || error
+        );
+        throw error;
+      }
+    } else {
+      return "No wallet";
+    }
+  }
+
+  public async setPoolFee(params: SetPoolFeeParams): Promise<object | string> {
+    if (this.walletInterface !== null) {
+      const { token1, token2, fee } = params;
+
+      const paramBuilder = new ContractFunctionParameterBuilder()
+        .addParam({
+          type: "address",
+          name: "token1",
+          value: token1,
+        })
+        .addParam({
+          type: "address",
+          name: "token2",
+          value: token2,
+        })
+        .addParam({
+          type: "uint24",
+          name: "newFee",
+          value: fee,
+        });
+
+      try {
+        const txId = await this.walletInterface.executeContractFunction(
+          this.contractId,
+          "setPoolFees",
+          paramBuilder,
+          0,
+          2_500_000
+        );
+
+        return txId;
+      } catch (error: any) {
+        console.error(
+          "Error executing withdraw transaction:",
+          error.message || error
+        );
+        throw error;
+      }
+    } else {
+      return "No wallet";
+    }
+  }
+
+  public async claimReward(): Promise<object | string> {
+    if (this.walletInterface !== null) {
+      const paramBuilder = new ContractFunctionParameterBuilder();
+      try {
+        const txId = await this.walletInterface.executeContractFunction(
+          this.contractId,
+          "claimReward",
+          paramBuilder,
+          0,
+          1_000_000
+        );
+        console.log("ClaimReward transaction submitted:", txId);
+        return txId;
+      } catch (error: any) {
+        console.error(
+          "Error executing claimReward transaction:",
+          error.message || error
+        );
+        throw error;
       }
     } else {
       return "No wallet";

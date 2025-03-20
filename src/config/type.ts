@@ -6,6 +6,7 @@ export type NetworkConfig = {
   mirrorNodeUrl: string;
   chainId: ChainId;
   contractId: string;
+  contractAddress: string;
 };
 
 // purpose of this file is to define the type of the config object
@@ -17,7 +18,6 @@ export type NetworkConfigs = {
     chainId: ChainId;
     contractId: string;
     contractAddress: string;
-    backendKey: string;
   };
 };
 

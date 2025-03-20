@@ -80,39 +80,7 @@ class MetaMaskWallet implements WalletInterface {
     return `0x${accountIdString}`;
   }
 
-  // Purpose: Transfer HBAR
-  // Returns: Promise<string>
-  // Note: Use JSON RPC Relay to search by transaction hash
-  async approveSessionAllowance() {
-    try {
-      return "FAILED";
-    } catch (error) {
-      return "FAILED";
-    }
-  }
-  async setOperator() {}
-  async readFile() {
-    try {
-      return "FAILED";
-    } catch (error) {
-      return "FAILED";
-    }
-  }
-  async createSessionAccount() {
-    try {
-      return "FAILED";
-    } catch (error) {
-      return "FAILED";
-    }
-  }
-  async updateFile(fileId: string, fileContents: string) {
-    try {
-      return "FAILED";
-    } catch (error) {
-      return "FAILED";
-    }
-  }
-  async createFile(publicKey: any, fileContents: string) {
+  async approveTokenAllowance() {
     try {
       return "FAILED";
     } catch (error) {

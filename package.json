@@ -12,6 +12,7 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
+    "bignumber": "^1.1.0",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",
     "eciesjs": "^0.4.14",

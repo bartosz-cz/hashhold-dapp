@@ -1,31 +1,23 @@
 import { AppBar, Button, Toolbar, Typography } from "@mui/material";
-import { useEffect, useState } from "react";
 import { useWalletInterface } from "../services/wallets/useWalletInterface";
-import { WalletSelectionDialog } from "./WalletSelectionDialog";
+import { openWalletConnectModal } from "../services/wallets/walletconnect/walletConnectClient";
 
 export default function NavBar() {
-  const [open, setOpen] = useState(false);
   const { accountId, walletInterface } = useWalletInterface();
 
   const handleConnect = async () => {
     if (accountId) {
       walletInterface.disconnect();
     } else {
-      setOpen(true);
+      openWalletConnectModal();
     }
   };
-
-  useEffect(() => {
-    if (accountId) {
-      setOpen(false);
-    }
-  }, [accountId]);
 
   return (
     <AppBar position="relative">
       <Toolbar>
         <Typography variant="h6" color="white" pl={1} noWrap>
-          Medical Assistant
+          HashHold
         </Typography>
         <Button
           variant="contained"
@@ -37,11 +29,6 @@ export default function NavBar() {
           {accountId ? `Connected: ${accountId}` : "Connect Wallet"}
         </Button>
       </Toolbar>
-      <WalletSelectionDialog
-        open={open}
-        setOpen={setOpen}
-        onClose={() => setOpen(false)}
-      />
     </AppBar>
   );
 }

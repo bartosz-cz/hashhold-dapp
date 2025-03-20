@@ -60,30 +60,11 @@ const hederaClient = Client.forName(hederaNetwork);
 // Adapted from walletconnect dapp example:
 // https://github.com/hashgraph/hedera-wallet-connect/blob/main/src/examples/typescript/dapp/main.ts#L87C1-L101C4
 const metadata: SignClientTypes.Metadata = {
-  name: "Hedera CRA Template",
-  description: "Hedera CRA Template",
+  name: "Hashhold DApp",
+  description: "smart contract call",
   url: window.location.origin,
   icons: [window.location.origin + "/logo192.png"],
 };
-let sessionPrivateKey: PrivateKey;
-let sessionPublicKey: PublicKey;
-let sessionAccountId: AccountId;
-const sessionClient = Client.forTestnet();
-if (sessionStorage.getItem("sessionAccountId")) {
-  console.log(sessionStorage.getItem("sessionPrivateKey"));
-  console.log(sessionStorage.getItem("sessionPublicKey"));
-  console.log(sessionStorage.getItem("sessionAccountId"));
-  sessionPrivateKey = PrivateKey.fromStringDer(
-    sessionStorage.getItem("sessionPrivateKey") || ""
-  );
-  sessionPublicKey = PublicKey.fromString(
-    sessionStorage.getItem("sessionPublicKey") || ""
-  );
-  sessionClient.setOperator(
-    AccountId.fromString(sessionStorage.getItem("sessionAccountId") || ""),
-    sessionPrivateKey
-  );
-}
 
 class WalletConnectWallet implements WalletInterface {
   private getSigner() {
@@ -97,212 +78,42 @@ class WalletConnectWallet implements WalletInterface {
     return AccountId.fromString(this.getSigner().getAccountId().toString());
   }
 
-  async createFile(
-    publicKey: Key,
-    backendKey: string,
-    fileContents: string,
-    sessionExecute: boolean = true
-  ) {
+  async approveTokenAllowance(
+    contractId: ContractId,
+    amount: number,
+    tokenId: TokenId
+  ): Promise<string> {
     try {
       const signer = this.getSigner();
+      const accountId = this.getAccountId();
+      // Build the allowance transaction
+      const allowanceTx = await new AccountAllowanceApproveTransaction()
+        .approveTokenAllowance(tokenId, accountId, contractId, amount) // Approve contract to spend tokens
+        .freezeWithSigner(signer);
 
-      // Ensure that inputPublicKey is a proper PublicKey instance.
-      // If it's a string, convert it.
-      console.log("test");
-      console.log(publicKey);
-      console.log(backendKey);
-      const backendKeyBytes = Uint8Array.from(
-        Buffer.from("04" + backendKey, "hex")
-      );
+      // Sign the transaction
 
-      // Import as an ECDSA public key (using fromBytesECDSA)
-      const backKey = PublicKey.fromBytesECDSA(backendKeyBytes);
-      console.log("test");
-      const properPublicKey = PublicKey.fromStringECDSA((publicKey as any).key);
-      console.log("test2");
-      const publicKeyList = [sessionPublicKey, properPublicKey, backKey];
-      console.log("test3");
-      const thresholdKey = new KeyList(publicKeyList, 1); // Only 1 key (frontend OR backend) needed
-      console.log("test4");
-      console.log("afterrrrr");
-      // Create a new FileCreateTransaction and set all fields.
-      const transaction = new FileCreateTransaction()
-        .setKeys([thresholdKey])
-        .setContents(fileContents)
-        .setMaxTransactionFee(new Hbar(2));
+      // Execute the transaction
+      const response = await allowanceTx.executeWithSigner(signer);
 
-      console.log(
-        "Is transaction frozen before freezeWithSigner()? ",
-        transaction.isFrozen()
-      );
-      let txResult;
-      if (sessionExecute) {
-        console.log(sessionClient);
-        const frozenTx = await transaction.freezeWith(sessionClient);
-        txResult = await frozenTx.execute(sessionClient);
-      } else {
-        const frozenTx = await transaction.freezeWithSigner(signer);
-        txResult = await frozenTx.executeWithSigner(signer);
+      // Get transaction receipt
+      const receipt = await new TransactionReceiptQuery()
+        .setTransactionId(response.transactionId)
+        .execute(hederaClient);
+      //const record = await response.getRecord(hederaClient);
+      //const qr = new TransactionRecordQuery()
+      //.setTransactionId(response.transactionId);
+
+      //console.log("Record  " + record);
+      //console.log("Transaction Result:", result);
+      if (receipt.status.toString() !== "SUCCESS") {
+        throw new Error(`Token allowance failed: ${receipt.status}`);
       }
 
-      // Fetch the transaction receipt.
-      const receipt = await new TransactionReceiptQuery()
-        .setTransactionId(txResult.transactionId)
-        .execute(hederaClient);
-      console.log("Transaction Receipt:", receipt);
-
-      if (receipt && receipt.fileId) return { receipt, result: txResult };
-      else return "FAILED";
+      console.log("SUCCESS");
+      return "SUCCESS";
     } catch (error) {
-      console.error("Transaction failed with error:", error);
-      return "FAILED";
-    }
-  }
-  async setOperator() {
-    console.log(sessionStorage.getItem("sessionPrivateKey"));
-    console.log(sessionStorage.getItem("sessionPublicKey"));
-    console.log(sessionStorage.getItem("sessionAccountId"));
-    sessionPrivateKey = PrivateKey.fromStringECDSA(
-      sessionStorage.getItem("sessionPrivateKey") || ""
-    );
-    sessionPublicKey = PublicKey.fromString(
-      sessionStorage.getItem("sessionPublicKey") || ""
-    );
-    sessionClient.setOperator(
-      AccountId.fromString(sessionStorage.getItem("sessionAccountId") || ""),
-      sessionPrivateKey
-    );
-  }
-  async updateFile(
-    fileId: string,
-    fileContents: string,
-    sessionExecute: boolean = true
-  ) {
-    console.log(fileId);
-    try {
-      const signer = this.getSigner();
-      const transaction = await new FileUpdateTransaction()
-        .setFileId(FileId.fromString(fileId))
-        .setContents(fileContents)
-        .setMaxTransactionFee(new Hbar(2));
-
-      console.log(
-        "Is transaction frozen before freezeWithSigner()? ",
-        transaction.isFrozen()
-      );
-      let txResult;
-      if (sessionExecute) {
-        const frozenTx = await transaction.freezeWith(sessionClient);
-        txResult = await frozenTx.execute(sessionClient);
-      } else {
-        const frozenTx = await transaction.freezeWithSigner(signer);
-        txResult = await frozenTx.executeWithSigner(signer);
-      }
-      // Fetch the transaction receipt.
-      const receipt = await new TransactionReceiptQuery()
-        .setTransactionId(txResult.transactionId)
-        .execute(hederaClient);
-      console.log("Transaction Receipt:", receipt);
-
-      if (receipt) return { receipt, result: txResult };
-      else return "FAILED";
-    } catch (error) {
-      console.error("Transaction failed with error:", error);
-      return "FAILED";
-    }
-  }
-
-  async readFile(fileId: string) {
-    try {
-      console.log(
-        "Using operator:",
-        sessionClient.operatorAccountId?.toString()
-      );
-      console.log(fileId);
-      const balance = await new AccountBalanceQuery()
-        .setAccountId(sessionClient.operatorAccountId!)
-        .execute(sessionClient);
-      console.log("Session Account Balance:", balance.hbars.toString());
-
-      // Use hederaClient (standard client) for the query
-      const fileQuery = await new FileContentsQuery()
-        .setFileId(FileId.fromString(fileId))
-        .setMaxQueryPayment(new Hbar(4)); // Optional: set max query payment
-
-      const cost = await fileQuery.getCost(sessionClient);
-      console.log("Estimated query cost:", cost.toString());
-      const fileContents = await fileQuery.execute(sessionClient);
-      const contentText = Buffer.from(fileContents).toString("utf-8");
-      console.log("File Content:", contentText);
-      return contentText;
-    } catch (error) {
-      console.error("Error reading file content:", error);
-      throw error;
-    }
-  }
-
-  async createSessionAccount() {
-    try {
-      const signer = walletConnectWallet.getSigner(); // Main wallet signer
-      const transaction = new AccountCreateTransaction()
-        .setKey(sessionPublicKey)
-        .setInitialBalance(new Hbar(1));
-
-      // Freeze the transaction with the operator's signer
-      const frozenTx = await transaction.freezeWithSigner(signer);
-
-      // Sign the transaction with the session's private key (required for new account creation)
-      const signedTx = await frozenTx.sign(sessionPrivateKey);
-
-      // Execute the transaction with the operator's signer
-      const txResult = await signedTx.executeWithSigner(signer);
-
-      // Retrieve the receipt for the transaction
-      const receipt = await new TransactionReceiptQuery()
-        .setTransactionId(txResult.transactionId)
-        .execute(hederaClient);
-
-      if (receipt.accountId) {
-        console.log(
-          "New session account created:",
-          receipt.accountId.toString()
-        );
-        sessionAccountId = AccountId.fromString(receipt.accountId.toString());
-        sessionClient.setOperator(sessionAccountId, sessionPrivateKey);
-        sessionStorage.setItem("sessionAccountId", sessionAccountId.toString());
-        return receipt.accountId;
-      } else {
-        throw new Error("Failed to create session account");
-      }
-    } catch (error) {
-      console.error("Allowance approval failed:", error);
-      return "FAILED";
-    }
-  }
-  async approveSessionAllowance(allowanceAmount: number) {
-    try {
-      const signer = walletConnectWallet.getSigner();
-      const ownerAccountId = walletConnectWallet.getAccountId();
-
-      const allowanceTx = new AccountAllowanceApproveTransaction()
-        .approveHbarAllowance(
-          ownerAccountId,
-          sessionAccountId,
-          new Hbar(allowanceAmount)
-        )
-        .setMaxTransactionFee(new Hbar(1));
-
-      const frozenTx = await allowanceTx.freezeWithSigner(signer);
-      const signedTx = await frozenTx.signWithSigner(signer);
-      const txResult = await signedTx.executeWithSigner(signer);
-
-      const receipt = await new TransactionReceiptQuery()
-        .setTransactionId(txResult.transactionId)
-        .execute(hederaClient);
-      console.log("Allowance przyznany:", receipt);
-      return receipt;
-    } catch (error) {
-      console.error("Przyznanie allowance nie powiodło się:", error);
+      console.error("Error in approveTokenAllowance:", error);
       return "FAILED";
     }
   }
@@ -311,43 +122,37 @@ class WalletConnectWallet implements WalletInterface {
     functionName: string,
     functionParameters: ContractFunctionParameterBuilder,
     value: number,
-    gasLimit: number,
-    sessionExecute: boolean = true
+    gasLimit: number
   ) {
     try {
       const tx = new ContractExecuteTransaction()
         .setContractId(contractId)
         .setGas(gasLimit)
         .setFunction(functionName, functionParameters.buildHAPIParams())
-        .setPayableAmount(new Hbar(value / 100000000));
+        .setPayableAmount(new Hbar(value));
 
       const signer = this.getSigner();
-      let txResult;
-      if (sessionExecute) {
-        await tx.freezeWith(sessionClient);
-        txResult = await tx.execute(sessionClient);
-      } else {
-        await tx.freezeWithSigner(signer);
-        txResult = await tx.executeWithSigner(signer);
-      }
 
+      await tx.freezeWithSigner(signer);
+      console.log("executed start");
+      const txResult = await tx.executeWithSigner(signer);
+      console.log("executed end");
       const receipt = await new TransactionReceiptQuery()
         .setTransactionId(txResult.transactionId)
         .execute(hederaClient);
       console.log("Transaction Receipt:", receipt);
-      if (receipt) return { receipt: receipt, result: txResult };
+
+      if (receipt) return { receipt: receipt, trId: txResult.transactionId };
       else return "FAILED";
     } catch (error) {
-      //console.error("Transaction failed with error:", error);
+      console.error("Transaction failed with error:", error);
       // Handle specific Hedera errors if possible
       return "FAILED";
     }
   }
+
   disconnect() {
     dappConnector.disconnectAll().then(() => {
-      sessionStorage.setItem("sessionAccountId", "");
-      sessionStorage.setItem("sessionPublicKey", "");
-      sessionStorage.setItem("sessionPrivateKey", "");
       refreshEvent.emit("sync");
     });
   }

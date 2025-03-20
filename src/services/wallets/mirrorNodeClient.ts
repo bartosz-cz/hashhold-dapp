@@ -1,118 +1,26 @@
 import {
   AccountId,
-  ContractId,
   TransactionId,
   EntityIdHelper,
+  TokenId,
 } from "@hashgraph/sdk";
 import { NetworkConfig } from "../../config";
-import { ethers, ContractInterface } from "ethers";
-import { strict } from "assert";
+import { ethers, InterfaceAbi, EventLog } from "ethers";
+import BigNumber from "bignumber.js";
 
 export class MirrorNodeClient {
-  url: string;
+  mirrorNodeUrl: string;
   contractId: string;
+  contractAddress: string;
+  jsonRpcUrl: string;
   constructor(networkConfig: NetworkConfig) {
-    this.url = networkConfig.mirrorNodeUrl;
+    this.mirrorNodeUrl = networkConfig.mirrorNodeUrl;
     this.contractId = networkConfig.contractId;
+    this.jsonRpcUrl = networkConfig.jsonRpcUrl;
+    this.contractAddress = networkConfig.contractAddress;
   }
 
-  private abi: ContractInterface = [
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "backend",
-          type: "address",
-        },
-      ],
-      name: "BackendAuthorized",
-      type: "event",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "backend",
-          type: "address",
-        },
-      ],
-      name: "BackendRevoked",
-      type: "event",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "requester",
-          type: "address",
-        },
-        {
-          indexed: false,
-          internalType: "string",
-          name: "hfsFileId",
-          type: "string",
-        },
-      ],
-      name: "DataAccessed",
-      type: "event",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "user",
-          type: "address",
-        },
-      ],
-      name: "DataDeleted",
-      type: "event",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "user",
-          type: "address",
-        },
-        {
-          indexed: false,
-          internalType: "string",
-          name: "hfsFileId",
-          type: "string",
-        },
-      ],
-      name: "DataUploaded",
-      type: "event",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "user",
-          type: "address",
-        },
-        {
-          indexed: false,
-          internalType: "uint256",
-          name: "newBalance",
-          type: "uint256",
-        },
-      ],
-      name: "MessageProcessed",
-      type: "event",
-    },
+  private abi: InterfaceAbi = [
     {
       anonymous: false,
       inputs: [
@@ -128,16 +36,185 @@ export class MirrorNodeClient {
           name: "amount",
           type: "uint256",
         },
+        {
+          indexed: false,
+          internalType: "uint256",
+          name: "startTime",
+          type: "uint256",
+        },
+        {
+          indexed: false,
+          internalType: "uint256",
+          name: "endTime",
+          type: "uint256",
+        },
+        {
+          indexed: false,
+          internalType: "uint256",
+          name: "stakeId",
+          type: "uint256",
+        },
+        {
+          indexed: false,
+          internalType: "address",
+          name: "tokenId",
+          type: "address",
+        },
       ],
-      name: "PaymentReceived",
+      name: "Staked",
+      type: "event",
+    },
+    {
+      anonymous: false,
+      inputs: [
+        {
+          indexed: true,
+          internalType: "address",
+          name: "user",
+          type: "address",
+        },
+        {
+          indexed: false,
+          internalType: "uint256",
+          name: "stakeId",
+          type: "uint256",
+        },
+        {
+          indexed: false,
+          internalType: "uint256",
+          name: "amount",
+          type: "uint256",
+        },
+        { indexed: false, internalType: "bool", name: "early", type: "bool" },
+        {
+          indexed: false,
+          internalType: "uint256",
+          name: "penalty",
+          type: "uint256",
+        },
+      ],
+      name: "Unstaked",
+      type: "event",
+    },
+    {
+      anonymous: false,
+      inputs: [
+        {
+          indexed: false,
+          internalType: "uint256",
+          name: "epochId",
+          type: "uint256",
+        },
+        {
+          indexed: false,
+          internalType: "uint256",
+          name: "totalHBARDistributed",
+          type: "uint256",
+        },
+        {
+          indexed: false,
+          internalType: "uint256",
+          name: "totalRewardTokenDistributed",
+          type: "uint256",
+        },
+      ],
+      name: "RewardsDistributed",
+      type: "event",
+    },
+    {
+      anonymous: false,
+      inputs: [
+        {
+          indexed: true,
+          internalType: "uint256",
+          name: "epochId",
+          type: "uint256",
+        },
+        {
+          indexed: false,
+          internalType: "uint256",
+          name: "startTime",
+          type: "uint256",
+        },
+        {
+          indexed: false,
+          internalType: "uint256",
+          name: "endTime",
+          type: "uint256",
+        },
+      ],
+      name: "EpochStarted",
+      type: "event",
+    },
+    {
+      anonymous: false,
+      inputs: [
+        {
+          indexed: true,
+          internalType: "uint256",
+          name: "epochId",
+          type: "uint256",
+        },
+        {
+          indexed: false,
+          internalType: "uint256",
+          name: "totalReward",
+          type: "uint256",
+        },
+        {
+          indexed: false,
+          internalType: "uint256",
+          name: "totalRewardShares",
+          type: "uint256",
+        },
+        {
+          indexed: false,
+          internalType: "uint256",
+          name: "rewardPerShare",
+          type: "uint256",
+        },
+      ],
+      name: "EpochFinalized",
+      type: "event",
+    },
+    {
+      anonymous: false,
+      inputs: [
+        {
+          indexed: false,
+          internalType: "address",
+          name: "tokenId",
+          type: "address",
+        },
+      ],
+      name: "TokenAssociated",
+      type: "event",
+    },
+    {
+      anonymous: false,
+      inputs: [
+        {
+          indexed: true,
+          internalType: "address",
+          name: "user",
+          type: "address",
+        },
+        {
+          indexed: false,
+          internalType: "uint256",
+          name: "totalReward",
+          type: "uint256",
+        },
+      ],
+      name: "RewardClaimed",
       type: "event",
     },
   ];
 
   async getAccountInfo(accountId: AccountId) {
-    console.log(`${this.url}/api/v1/accounts/${accountId}`);
+    console.log(`${this.mirrorNodeUrl}/api/v1/accounts/${accountId}`);
     const accountInfo = await fetch(
-      `${this.url}/api/v1/accounts/${accountId}`,
+      `${this.mirrorNodeUrl}/api/v1/accounts/${accountId}`,
       { method: "GET" }
     );
     console.log(accountInfo);
@@ -146,106 +223,188 @@ export class MirrorNodeClient {
     return accountInfoJson;
   }
 
-  async getEpochId(accountId: AccountId) {
-    const accountInfo = await fetch(
-      `${this.url}/api/v1/accounts/${accountId}`,
-      { method: "GET" }
+  async catchContractEvent(accountId: string, eventName: string): Promise<any> {
+    const accountInfo = await this.getAccountInfo(
+      AccountId.fromString(accountId)
     );
-    const accountInfoJson = await accountInfo.json();
-    return accountInfoJson;
-  }
-
-  async getContractTransactionEvents(
-    transactionId: TransactionId,
-    delay: number
-  ) {
-    console.log(transactionId);
-    let id = transactionId.toString().replace("@", "-");
-    const lastDotIndex = id.lastIndexOf(".");
-    id = id.substring(0, lastDotIndex) + "-" + id.substring(lastDotIndex + 1);
-    console.log(`${this.url}/api/v1/contracts/results/${id}`);
-    const result = await fetch(`${this.url}/api/v1/contracts/results/${id}`, {
-      method: "GET",
-    });
-
-    return await parseEvents(result, this.abi, this.contractId);
-  }
-
-  async getContractEventsbyAccount(accountId: string | null) {
-    let formattedAccountId = accountId;
-    if (accountId && accountId.length === 42) {
-      console.log(`${this.url}/api/v1/accounts/${accountId}`);
-      const response = await fetch(`${this.url}/api/v1/accounts/${accountId}`);
-
-      if (!response.ok) {
-        console.error(
-          "Error fetching account from Mirror Node:",
-          response.statusText
+    const accountAddress = accountInfo.evm_address.toLowerCase(); // Ensure lowercase comparison
+    return new Promise((resolve, reject) => {
+      try {
+        const provider = new ethers.JsonRpcProvider(this.jsonRpcUrl);
+        const contract = new ethers.Contract(
+          this.contractAddress,
+          this.abi,
+          provider
         );
+
+        // 🔹 Get account info (Convert Hedera ID to EVM address)
+
+        contract.once(eventName, async (...args: any[]) => {
+          try {
+            if (args[0].toLowerCase() === accountAddress) {
+              const tokenAddress = args[5];
+              let tokenSymbol = "";
+              let tokenDecimals = 0;
+
+              if (
+                tokenAddress === "0x0000000000000000000000000000000000000000"
+              ) {
+                tokenSymbol = "Hbar";
+                tokenDecimals = 8;
+              } else {
+                try {
+                  const tokenId = AccountId.fromEvmAddress(0, 0, tokenAddress);
+                  const tokenInfoResponse = await fetch(
+                    `${this.mirrorNodeUrl}/api/v1/tokens/${tokenId}`
+                  );
+                  if (tokenInfoResponse.ok) {
+                    const tokenInfo = await tokenInfoResponse.json();
+                    tokenSymbol = tokenInfo.symbol;
+                    tokenDecimals = tokenInfo.decimals;
+                  } else {
+                    console.warn(
+                      `⚠️ Failed to fetch token info for ${tokenId}`
+                    );
+                  }
+                } catch (error) {
+                  console.warn(`⚠️ Invalid token address: ${tokenAddress}`);
+                }
+              }
+
+              const eventEntry = {
+                amount: Number(args[1]) / 10 ** tokenDecimals,
+                startTime: Number(args[2]),
+                endTime: Number(args[3]),
+                stakeId: BigNumber(args[4]),
+                symbol: tokenSymbol,
+              };
+
+              console.log("✅ Caught Event:", eventEntry);
+              resolve(eventEntry);
+            }
+          } catch (error) {
+            console.error("❌ Błąd podczas przetwarzania eventu:", error);
+            resolve({});
+          }
+        });
+      } catch (error) {
+        console.error("🚨 Error setting up event listener:", error);
+        reject(error);
       }
-      const resData = await response.json();
-      if (resData.account) {
-        console.log(resData);
-        formattedAccountId = resData.account; // Return the Hedera AccountId (e.g., "0.0.12345")
-      } else {
-        console.warn("No account found for EVM address.");
-      }
-    }
-
-    console.log(`${this.url}/api/v1/transactions/?account.id=${formattedAccountId}&limit=100&transactiontype=CONTRACTCALL
-`);
-    const result = await fetch(
-      `${this.url}/api/v1/transactions/?account.id=${formattedAccountId}&limit=100&transactiontype=CONTRACTCALL
-`,
-
-      {
-        method: "GET",
-      }
-    );
-
-    const data = await result.json();
-    const transactions = data.transactions;
-
-    // Filter client-side by `entity_id`:
-    const filteredTransactions = transactions.filter(
-      (tx: any) => tx.entity_id === this.contractId
-      // ||  tx.entity_id === "0.0.15058" ||
-      //  tx.entity_id === "0.0.359" ||
-      //  tx.entity_id === null
-    );
-    let events = [];
-    console.log(filteredTransactions);
-    for (const tx of filteredTransactions) {
-      console.log(tx);
-      console.log(tx.transaction_id);
-      let resultResponse;
-
-      console.log(`${this.url}/api/v1/contracts/results/${tx.transaction_id}`);
-      const contractResultUrl = `${this.url}/api/v1/contracts/results/${tx.transaction_id}`;
-      resultResponse = await fetch(contractResultUrl, {
-        method: "GET",
-      });
-      console.log(resultResponse);
-
-      if (resultResponse.status === 404) {
-        continue;
-      }
-
-      const event = await parseEvents(
-        resultResponse,
-        this.abi,
-        this.contractId
-      );
-      //console.log(event);
-      events.push(event);
-      //console.log(events);
-      console.log("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
-    }
-    console.log(events);
-    return events;
+    });
   }
 
-  /*async getTransactionIdByHashId(
+  async getActiveUserStakes(accountId: string): Promise<any[]> {
+    try {
+      console.log(`🔵 Fetching staking events for user: ${accountId}`);
+
+      // Convert EVM address to Hedera Account ID if needed
+
+      const accountInfo = await this.getAccountInfo(
+        AccountId.fromString(accountId)
+      );
+      const accountAddress = accountInfo.evm_address;
+      let nextPageUrl: string | null = `${
+        this.mirrorNodeUrl
+      }/api/v1/contracts/${
+        this.contractId
+      }/results/logs?limit=${500}&order=desc`;
+
+      const contractInterface = new ethers.Interface(this.abi);
+      const activeStakes: any[] = [];
+      const unstakeIds: number[] = [];
+      while (nextPageUrl) {
+        console.log(`📡 Fetching logs from: ${nextPageUrl}`);
+        const response = await fetch(nextPageUrl);
+        if (!response.ok) throw new Error("Failed to fetch event logs");
+
+        const eventData = await response.json();
+        const logs = eventData.logs;
+        for (const log of logs) {
+          try {
+            const parsedLog = contractInterface.parseLog({
+              topics: log.topics,
+              data: log.data,
+            });
+            console.log(parsedLog?.args.user);
+            console.log(accountId);
+
+            if (parsedLog.name === "Staked" || parsedLog.name === "Unstaked") {
+              if (
+                parsedLog?.args.user.toLowerCase() ===
+                accountAddress.toLowerCase()
+              ) {
+                if (parsedLog.name === "Unstaked") {
+                  const unstakeId = Number(parsedLog?.args.stakeId);
+                  unstakeIds.push(unstakeId);
+                  console.log(`✅ Added Unsatke: +${unstakeId}`);
+                  console.log(`✅ Added Unsatke: +${parsedLog?.args.amount}`);
+                } else {
+                  const stakedIndex = Number(parsedLog?.args.stakeId);
+                  if (!unstakeIds.includes(stakedIndex)) {
+                    const tokenAddress = parsedLog?.args.tokenId;
+                    let tokenSymbol = "";
+                    let tokenDecimals = 0;
+                    if (
+                      tokenAddress ===
+                      "0x0000000000000000000000000000000000000000"
+                    ) {
+                      tokenSymbol = "Hbar";
+                      tokenDecimals = 8;
+                    } else {
+                      const tokenId = AccountId.fromEvmAddress(
+                        0,
+                        0,
+                        parsedLog?.args.tokenId
+                      );
+                      const tokenInfoResponse = await fetch(
+                        `${this.mirrorNodeUrl}/api/v1/tokens/${tokenId}`
+                      );
+                      const tokenInfo = await tokenInfoResponse.json();
+                      tokenSymbol = tokenInfo.symbol;
+                      tokenDecimals = tokenInfo.decimals;
+                    }
+                    console.log(parsedLog?.args.stakeId);
+                    const eventEntry = {
+                      amount:
+                        Number(parsedLog?.args.amount) / 10 ** tokenDecimals,
+                      startTime: Number(parsedLog?.args.startTime),
+                      endTime: Number(parsedLog?.args.endTime),
+                      stakeId: BigNumber(parsedLog?.args.stakeId),
+                      symbol: tokenSymbol,
+                    };
+                    activeStakes.push(eventEntry);
+                    console.log(`✅ Added Stake: +${eventEntry.stakeId}`);
+                  }
+
+                  // Remove unstaked amounts from active stakes
+                }
+              }
+            }
+          } catch (err) {
+            console.warn("⚠️ Error parsing log:", err);
+          }
+        }
+
+        // Check for next page
+        nextPageUrl = eventData.links?.next
+          ? `${this.mirrorNodeUrl}${eventData.links.next}`
+          : null;
+
+        // Prevent rate limit issues
+        if (nextPageUrl) await new Promise((res) => setTimeout(res, 500));
+      }
+
+      console.log(`🎯 Final Active Stakes:`, activeStakes);
+      return activeStakes;
+    } catch (error) {
+      console.error("🚨 Error fetching staking events:", error);
+      return [];
+    }
+  }
+}
+
+/*async getTransactionIdByHashId(
     hashId: string,
   ) {
    
@@ -261,7 +420,6 @@ export class MirrorNodeClient {
    
     return events;
   }*/
-}
 
 /*function hexToBase64(hexString: string) {
   // remove leading 0x

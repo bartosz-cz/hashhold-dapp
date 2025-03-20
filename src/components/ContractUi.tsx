@@ -1,231 +1,457 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
+import { MirrorNodeClient } from "../services/wallets/mirrorNodeClient";
+import { appConfig } from "../config";
 import {
   Container,
   Typography,
   TextField,
   Button,
-  List,
-  ListItem,
-  ListItemAvatar,
-  Avatar,
-  Box,
-  Paper,
+  Grid,
+  Card,
+  CardContent,
+  CardActions,
+  Collapse,
 } from "@mui/material";
-import { HederaContractClient } from "../services/contract/HederaContractClient";
-import { networkConfig } from "../config/networks";
 import { useWalletInterface } from "../services/wallets/useWalletInterface";
-
 import {
-  ContractId,
-  Hbar,
-  TransactionReceipt,
-  TransactionId,
-  AccountAllowanceApproveTransaction,
-  TokenId,
-  FileId,
-  TransactionResponse,
-  AccountId,
-  AccountInfo,
-  PrivateKey,
-  PublicKey,
-  FileContentsQuery,
-  EntityIdHelper,
-  Client,
-} from "@hashgraph/sdk";
-
-interface Message {
-  id: number;
-  sender: "user" | "assistant";
-  text: string;
+  HederaContractClient,
+  SetPoolFeeParams,
+  StakeParams,
+  TokenAssociateParams,
+  WithdrawParams,
+} from "../services/contract/HederaContractClient";
+import { networkConfig } from "../config/networks";
+interface Pool {
+  token1: string;
+  token2: string;
+  fee: number;
 }
 
 const ContractUi: React.FC = () => {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-  const [isExpanded, setIsExpanded] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const { accountId, walletInterface } = useWalletInterface();
   const [contractClient, setContractClient] = useState<HederaContractClient>(
     new HederaContractClient(walletInterface, {
       contractId: networkConfig.testnet.contractId,
     })
   );
+
+  const [stakeAmount, setStakeAmount] = useState<string>("");
+  const [stakeToken, setStakeToken] = useState<string>("");
+  const [stakeDuration, setStakeDuration] = useState<string>("");
+  const [boostAmount, setBoostAmount] = useState<string>("");
+  const [status, setStatus] = useState({ stake: "", associate: "", fee: "" });
+  const [stakedEvents, setStakedEvents] = useState<any[]>([]);
+  const [tokenAddress, setTokenAddress] = useState<string>("");
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [pool, setPool] = useState<Pool>({
+    token1: "",
+    token2: "",
+    fee: 0,
+  });
+
   useEffect(() => {
     setContractClient(
       new HederaContractClient(walletInterface, {
         contractId: networkConfig.testnet.contractId,
       })
     );
-  }, [accountId]);
-  const handleSendMessage = async () => {
-    if (input.trim() === "") return;
-
-    const newMessage: Message = {
-      id: messages.length + 1,
-      sender: "user",
-      text: input.trim(),
-    };
-
-    let updatedMessages = [...messages, newMessage];
-    setMessages(updatedMessages);
-    setInput("");
-    let assistantResponse;
-    if (typeof accountId === "string") {
-      assistantResponse = await contractClient.uploadMedicalData(
-        accountId,
-        updatedMessages
-      );
-      console.log("Assistant response:", assistantResponse);
-    }
-
-    if (typeof assistantResponse === "string") {
-      const assistantMessage: Message = {
-        id: updatedMessages.length + 1,
-        sender: "assistant",
-        text: assistantResponse,
-      };
-
-      updatedMessages = [...updatedMessages, assistantMessage];
-      setMessages(updatedMessages);
+    if (accountId) {
+      getStakes(accountId);
     } else {
-      console.warn("Assistant response was not a string:", assistantResponse);
+      setStakedEvents([]);
     }
-    setIsExpanded(false);
+  }, [accountId]);
+
+  const mirrorNodeClient = new MirrorNodeClient(appConfig.networks.testnet);
+
+  const handleStake = async () => {
+    if (accountId) {
+      try {
+        const stakeParams: StakeParams = {
+          tokenId: stakeToken,
+          amount: parseInt(stakeAmount, 10),
+          duration: parseInt(stakeDuration, 10),
+          boostTokenAmount: parseInt(boostAmount, 10),
+          priceIds: [
+            "3728e591097635310e6341af53db8b7ee42da9b3a8d918f9463ce9cca886dfbd",
+          ],
+        };
+        setStatus({ ...status, stake: "" });
+        const response = await contractClient.stakeTokens(stakeParams);
+        if (typeof response === "string") {
+          setStatus({ ...status, stake: "FAILED" });
+        } else {
+          setStatus({ ...status, stake: "SUCCESS" });
+
+          const newStake = await mirrorNodeClient.catchContractEvent(
+            accountId,
+            "Staked"
+          );
+          setStakedEvents([...stakedEvents, newStake]);
+        }
+      } catch (error: any) {
+        alert(`Staking failed: ${error.message}`);
+      }
+    }
   };
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  const getStakes = async (accountId: string) => {
+    const stakes = await mirrorNodeClient.getActiveUserStakes(accountId);
+    setStakedEvents(stakes);
+  };
+
+  const handleWithdraw = async (stakeId: number) => {
+    try {
+      const withdrawParams: WithdrawParams = {
+        stakeId: stakeId,
+      };
+      const txId = await contractClient.withdrawTokens(withdrawParams);
+      if (typeof txId !== "string") {
+        let filteredEvents = stakedEvents.filter(
+          (ev: any) => ev.stakeId !== stakeId
+        );
+        setStakedEvents(filteredEvents);
+      } else {
+        alert("Withdraw failed: No Transaction ID returned.");
+      }
+    } catch (error: any) {
+      alert(`Withdraw failed: ${error.message}`);
+    }
+  };
+
+  const handleSetPoolFee = async () => {
+    try {
+      const SetPoolFeeParams: SetPoolFeeParams = {
+        token1: pool.token1,
+        token2: pool.token2,
+        fee: pool.fee,
+      };
+      const txId = await contractClient.setPoolFee(SetPoolFeeParams);
+      if (typeof txId === "string") {
+        setStatus({ ...status, fee: "FAILED" });
+      } else {
+        setStatus({ ...status, fee: "SUCCESS" });
+      }
+    } catch (error: any) {
+      alert(`Withdraw failed: ${error.message}`);
+    }
+  };
+
+  const handleAssociateToken = async () => {
+    try {
+      const TokenAssociateParams: TokenAssociateParams = {
+        tokenAddress: tokenAddress,
+      };
+      const txId = await contractClient.associateToken(TokenAssociateParams);
+      if (typeof txId === "string") {
+        setStatus({ ...status, associate: "FAILED" });
+      } else {
+        setStatus({ ...status, associate: "SUCCESS" });
+      }
+    } catch (error: any) {
+      alert(`Withdraw failed: ${error.message}`);
+    }
+  };
+
+  const handleClaimReward = async () => {
+    try {
+      const txId = await contractClient.claimReward();
+      if (txId) {
+        alert(`Reward claim submitted with transaction ID: ${txId}`);
+      } else {
+        alert("Reward claim failed: No Transaction ID returned.");
+      }
+    } catch (error: any) {
+      alert(`Reward claim failed: ${error.message}`);
+    }
+  };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "calc(100vh - 65px)",
-        width: "100vw",
-        justifyContent: "center",
-        padding: 36,
-      }}
-    >
-      <Box
-        display="flex"
-        flexDirection="column"
+    <Container>
+      <Grid
+        container
+        alignItems="center"
+        justifyContent="center"
         sx={{
-          maxHeight: "calc(100vh - 85px)",
-          height: "fit-content",
-          boxSizing: "border-box",
+          display: "flex",
+          flexWrap: "nowrap", // Ensures staking form and stakes stay in one row
+          justifyContent: "center",
+          width: "100%",
         }}
-        p={2}
-        style={{ justifyContent: "center" }}
       >
-        {/* Chat history window */}
-        <Paper
-          elevation={3}
-          style={{
-            height: "fit-content",
-            padding: "16px",
-            overflowY: "auto",
-            justifyContent: "center",
+        <Grid
+          item
+          md={3}
+          mb={0}
+          sx={{
+            mt: 5,
+            width: 300,
+            minWidth: 300,
+            maxWidth: 300,
           }}
         >
-          <List>
-            {messages.map((message) => (
-              <ListItem
-                key={message.id}
-                alignItems="flex-start"
-                style={{
-                  justifyContent:
-                    message.sender === "user" ? "flex-end" : "flex-start",
-                }}
-              >
-                {message.sender === "assistant" && (
-                  <ListItemAvatar
-                    style={{ display: "flex", alignSelf: "start" }}
-                  >
-                    <Avatar alt="Asystent" src="/assistant-avatar.png" />
-                  </ListItemAvatar>
-                )}
-                <Paper
-                  style={{
-                    padding: "8px",
-                    backgroundColor:
-                      message.sender === "user" ? "#1976d2" : "#e0e0e0",
-                    color: message.sender === "user" ? "#fff" : "#000",
-                    borderRadius: "8px",
-                    maxWidth: "70%",
-                  }}
-                >
-                  <Typography
-                    variant="body1"
+          <Grid container direction="row" spacing={2}>
+            {advancedOpen ? (
+              <Grid item>
+                <Grid container direction="row" spacing={2}>
+                  <div
                     style={{
-                      whiteSpace: "pre-wrap",
-                      wordBreak: "break-word",
+                      maxHeight: "300px",
+                      overflowY: "auto",
+                      marginTop: "16px",
                     }}
                   >
-                    {message.text}
-                  </Typography>
-                </Paper>
+                    {/* Associate Token */}
+                    <Card sx={{ mb: 3 }}>
+                      <CardContent>
+                        <Typography variant="h6" align="center" sx={{ mb: 2 }}>
+                          Associate Token
+                        </Typography>
+                        <TextField
+                          fullWidth
+                          label="Token Address"
+                          variant="outlined"
+                          value={tokenAddress}
+                          onChange={(e) => setTokenAddress(e.target.value)}
+                          sx={{ mb: 2 }}
+                        />
+                        <Button
+                          variant="contained"
+                          fullWidth
+                          onClick={handleAssociateToken}
+                          sx={{ mb: 2 }}
+                        >
+                          ASSOCIATE
+                        </Button>
+                        <Typography variant="body2" align="center">
+                          {status.associate}
+                        </Typography>
+                      </CardContent>
+                    </Card>
 
-                {message.sender === "user" && (
-                  <ListItemAvatar
-                    style={{
-                      paddingLeft: 15,
-                      display: "flex",
-                      alignSelf: "end",
-                    }}
+                    {/* Set Pool Fees */}
+                    <Card sx={{ mb: 3 }}>
+                      <CardContent>
+                        <Typography variant="h6" align="center" sx={{ mb: 2 }}>
+                          Set Pool Fees
+                        </Typography>
+                        <TextField
+                          fullWidth
+                          label="Token 1"
+                          variant="outlined"
+                          value={pool.token1}
+                          onChange={(e) =>
+                            setPool({ ...pool, token1: e.target.value })
+                          }
+                          sx={{ mb: 2 }}
+                        />
+                        <TextField
+                          fullWidth
+                          label="Token 2"
+                          variant="outlined"
+                          value={pool.token2}
+                          onChange={(e) =>
+                            setPool({ ...pool, token2: e.target.value })
+                          }
+                          sx={{ mb: 2 }}
+                        />
+                        <TextField
+                          fullWidth
+                          label="Fee"
+                          variant="outlined"
+                          value={pool.fee}
+                          onChange={(e) =>
+                            setPool({ ...pool, fee: Number(e.target.value) })
+                          }
+                          sx={{ mb: 2 }}
+                        />
+                        <Button
+                          variant="contained"
+                          fullWidth
+                          onClick={handleSetPoolFee}
+                          sx={{ mb: 2 }}
+                        >
+                          SET FEES
+                        </Button>
+                        <Typography variant="body2" align="center">
+                          {status.fee}
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </Grid>
+              </Grid>
+            ) : (
+              <Grid item></Grid>
+            )}
+
+            <Grid item>
+              <Card sx={{ mb: 2, width: 300, minWidth: 300, maxWidth: 300 }}>
+                <CardContent>
+                  <Typography variant="h6" align="center" sx={{ mb: 2 }}>
+                    Stake Tokens
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    label="Token Address"
+                    variant="outlined"
+                    value={stakeToken}
+                    onChange={(e) => setStakeToken(e.target.value)}
+                    sx={{ mb: 2 }}
+                  />
+                  <TextField
+                    fullWidth
+                    label="Amount"
+                    variant="outlined"
+                    value={stakeAmount}
+                    onChange={(e) => setStakeAmount(e.target.value)}
+                    sx={{ mb: 2 }}
+                  />
+                  <TextField
+                    fullWidth
+                    label="Duration (seconds)"
+                    variant="outlined"
+                    value={stakeDuration}
+                    onChange={(e) => setStakeDuration(e.target.value)}
+                    sx={{ mb: 2 }}
+                  />
+                  <TextField
+                    fullWidth
+                    label="Boost Token Amount"
+                    variant="outlined"
+                    value={boostAmount}
+                    onChange={(e) => setBoostAmount(e.target.value)}
+                    sx={{ mb: 2 }}
+                  />
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    onClick={handleStake}
+                    sx={{ mb: 2 }}
                   >
-                    <Avatar
-                      style={{ display: "flex", alignSelf: "end" }}
-                      alt="Ty"
-                      src="/user-avatar.png"
-                    />
-                  </ListItemAvatar>
-                )}
-              </ListItem>
-            ))}
-          </List>
-          <div ref={messagesEndRef} />
-        </Paper>
-        {/* Input area and send button */}
-        <Box
-          mt={2}
-          display="flex"
-          alignContent="center"
-          justifyContent="center"
-        >
-          <TextField
-            fullWidth
-            variant="outlined"
-            placeholder="Wpisz wiadomość..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            multiline
-            rows={isExpanded ? 4 : 1}
-            onFocus={() => setIsExpanded(true)}
-            onBlur={() => {
-              if (input.trim() === "") setIsExpanded(false);
-            }}
+                    STAKE
+                  </Button>
+                  <Typography variant="body2" align="center">
+                    {status.stake}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+
+          <Grid container spacing={2}>
+            <Grid item xs={6}>
+              <Button variant="outlined" fullWidth onClick={handleClaimReward}>
+                REWARD
+              </Button>
+            </Grid>
+            <Grid item xs={6}>
+              <Button
+                variant="outlined"
+                fullWidth
+                onClick={() => setAdvancedOpen(!advancedOpen)}
+              >
+                ADVANCED
+              </Button>
+            </Grid>
+          </Grid>
+        </Grid>
+
+        {stakedEvents.length > 0 ? (
+          <Grid
+            item
+            xs={12}
+            md={12} // Ensures "Active Stakes" takes up available space
             sx={{
-              transition: "all 0.3s ease",
-            }}
-          />
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleSendMessage}
-            style={{
-              marginLeft: "8px",
-              maxHeight: "40px",
               display: "flex",
-              alignSelf: "center",
+              flexDirection: "column", // Keeps the title above the cards
+              alignItems: "center",
+              maxHeight: "600px", // Centers the title
+              overflowY: "auto",
+              ml: 5,
             }}
           >
-            Wyślij
-          </Button>
-        </Box>
-      </Box>
-    </div>
+            <Typography variant="h5" align="center" sx={{ mb: 2, mt: 10 }}>
+              Active Stakes
+            </Typography>
+
+            {/* Card Grid */}
+            <Grid
+              container
+              spacing={2}
+              justifyContent="center" // Ensures even spacing
+              sx={{
+                display: "flex",
+                flexWrap: "wrap", // Allows cards to wrap naturally
+                justifyContent: "center", // Centers wrapped cards
+              }}
+            >
+              {stakedEvents.map((ev, index) => {
+                const amount = ev.amount.toString();
+                const startDate = new Date(ev.startTime * 1000);
+                const endDate = new Date(ev.endTime * 1000);
+                const formattedStartDate = startDate.toLocaleString("en-US", {
+                  month: "short",
+                  day: "2-digit",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: false,
+                });
+                const formattedEndDate = endDate.toLocaleString("en-US", {
+                  month: "short",
+                  day: "2-digit",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: false,
+                });
+
+                return (
+                  <Grid item key={index}>
+                    <Card
+                      sx={{
+                        width: "250px",
+                        minWidth: "250px",
+                        maxWidth: "250px",
+                      }}
+                    >
+                      <CardContent>
+                        <Typography variant="h6" align="center" noWrap>
+                          {amount} {ev.symbol}
+                        </Typography>
+                        <br />
+                        <Typography
+                          variant="body2"
+                          align="center"
+                          color="textSecondary"
+                        >
+                          Staked: {formattedStartDate}
+                          <br />
+                          Ends: {formattedEndDate}
+                        </Typography>
+                      </CardContent>
+                      <CardActions>
+                        <Button
+                          variant="outlined"
+                          color="primary"
+                          onClick={() => handleWithdraw(ev.stakeId)}
+                          fullWidth
+                        >
+                          Unstake
+                        </Button>
+                      </CardActions>
+                    </Card>
+                  </Grid>
+                );
+              })}
+            </Grid>
+          </Grid>
+        ) : (
+          <div></div>
+        )}
+      </Grid>
+    </Container>
   );
 };
 

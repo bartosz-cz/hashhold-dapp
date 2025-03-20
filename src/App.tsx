@@ -18,6 +18,8 @@ function App() {
             display: "flex",
             flexDirection: "column",
             minHeight: "100vh",
+            minWidth: "100vw",
+            overflow: "hidden",
             backgroundColor: "#222222",
             backgroundSize: "cover",
             backgroundRepeat: "no-repeat",
