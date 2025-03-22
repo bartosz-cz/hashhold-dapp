@@ -6,7 +6,7 @@ import { AllWalletsProvider } from "./services/wallets/AllWalletsProvider";
 
 import { theme } from "./theme";
 
-import ContractUi from "./components/ContractUi";
+import Content from "./components/Content";
 
 function App() {
   return (
@@ -29,7 +29,7 @@ function App() {
           <header>
             <NavBar />
           </header>
-          <ContractUi></ContractUi>
+          <Content></Content>
 
           <Footer />
         </Box>

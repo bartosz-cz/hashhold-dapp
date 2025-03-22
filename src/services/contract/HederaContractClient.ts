@@ -98,10 +98,12 @@ export class HederaContractClient {
   }
 
   public async stakeTokens(params: StakeParams): Promise<object | string> {
+    console.log(params);
     if (this.walletInterface !== null) {
       let tokenDecimals = 0;
 
       const { tokenId, amount, duration, boostTokenAmount, priceIds } = params;
+      console.log(params);
       let payableValue: number = 0;
       let priceUpdateData: Uint8Array[] = [];
       if (tokenId === "0x0000000000000000000000000000000000000000") {
@@ -112,7 +114,7 @@ export class HederaContractClient {
         tokenDecimals = 6;
         await this.walletInterface.approveTokenAllowance(
           this.contractId,
-          amount * 10 ** tokenDecimals,
+          amount,
           TokenId.fromSolidityAddress(tokenId)
         );
       }
@@ -122,7 +124,7 @@ export class HederaContractClient {
         .addParam({
           type: "uint256",
           name: "amount",
-          value: amount * 10 ** tokenDecimals,
+          value: amount,
         })
         .addParam({ type: "uint256", name: "duration", value: duration })
         .addParam({

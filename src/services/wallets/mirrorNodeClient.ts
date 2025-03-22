@@ -211,7 +211,7 @@ export class MirrorNodeClient {
     },
   ];
 
-  async getAccountInfo(accountId: AccountId) {
+  async getAccountInfo(accountId: string | AccountId) {
     console.log(`${this.mirrorNodeUrl}/api/v1/accounts/${accountId}`);
     const accountInfo = await fetch(
       `${this.mirrorNodeUrl}/api/v1/accounts/${accountId}`,
@@ -404,66 +404,7 @@ export class MirrorNodeClient {
   }
 }
 
-/*async getTransactionIdByHashId(
-    hashId: string,
-  ) {
-   
-      const base64Hash = hexToBase64(hashId);
-      console.log(`${this.url}/api/v1/contracts/results/${tx.transaction_id}`);
-      const contractResultUrl = `${this.url}/api/v1/contracts/results/${tx.transaction_id}`;
-      const resultResponse = await fetch(contractResultUrl, { method: "GET" });
-      console.log(resultResponse);
-      const event = await parseEvents(resultResponse, this.abi);
-      console.log(event);
-      events.push(event);
-      console.log(events);
-   
-    return events;
-  }*/
-
-/*function hexToBase64(hexString: string) {
-  // remove leading 0x
-  const hex = hexString.replace(/^0x/, '');
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
-  }
-  return btoa(String.fromCharCode(...bytes));
-}*/
-
 function evmToHederaAddress(hederaNativeAddress: string) {
   const { shard, realm, num } = EntityIdHelper.fromString(hederaNativeAddress);
   return "0x" + EntityIdHelper.toSolidityAddress([shard, realm, num]);
-}
-
-async function parseEvents(
-  response: any,
-  abi: ContractInterface,
-  contractId: string
-) {
-  const jResponse = await response.json();
-  const abiInterface = new ethers.Interface(JSON.stringify(abi));
-  let events: any[] = [];
-  let evmAddress = evmToHederaAddress(contractId);
-  //console.log(jResponse.logs);
-  //console.log(evmAddress);
-  await jResponse.logs
-    .filter((log: any) => log.contract_id === contractId)
-    .forEach((log: any) => {
-      try {
-        const logRequest = {
-          data: log.data,
-          topics: log.topics,
-        };
-        const event = abiInterface.parseLog(logRequest);
-        console.log(event);
-        console.log(event.args);
-        events.push(event);
-        return event.args;
-      } catch (err) {
-        console.error("Error decoding log:", err);
-      }
-    });
-  console.log(events);
-  return events;
 }

@@ -129,7 +129,7 @@ class WalletConnectWallet implements WalletInterface {
         .setContractId(contractId)
         .setGas(gasLimit)
         .setFunction(functionName, functionParameters.buildHAPIParams())
-        .setPayableAmount(new Hbar(value));
+        .setPayableAmount(Hbar.fromTinybars(value));
 
       const signer = this.getSigner();
 
