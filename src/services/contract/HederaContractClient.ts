@@ -163,9 +163,11 @@ export class HederaContractClient {
   public async withdrawTokens(
     params: WithdrawParams
   ): Promise<object | string> {
+    console.log("withraw stake id " + this.walletInterface);
     if (this.walletInterface !== null) {
       const { stakeId } = params;
       console.log(stakeId);
+      console.log("withraw stake id " + stakeId);
       // Build parameters using the provided builder
       const paramBuilder = new ContractFunctionParameterBuilder().addParam({
         type: "uint256",

@@ -92,6 +92,12 @@ export class MirrorNodeClient {
           name: "penalty",
           type: "uint256",
         },
+        {
+          indexed: false,
+          internalType: "address",
+          name: "tokenId",
+          type: "address",
+        },
       ],
       name: "Unstaked",
       type: "event",
@@ -212,14 +218,13 @@ export class MirrorNodeClient {
   ];
 
   async getAccountInfo(accountId: string | AccountId) {
-    console.log(`${this.mirrorNodeUrl}/api/v1/accounts/${accountId}`);
     const accountInfo = await fetch(
       `${this.mirrorNodeUrl}/api/v1/accounts/${accountId}`,
       { method: "GET" }
     );
-    console.log(accountInfo);
+
     const accountInfoJson = await accountInfo.json();
-    console.log(accountInfoJson);
+
     return accountInfoJson;
   }
 
@@ -278,8 +283,6 @@ export class MirrorNodeClient {
                 stakeId: BigNumber(args[4]),
                 symbol: tokenSymbol,
               };
-
-              console.log("✅ Caught Event:", eventEntry);
               resolve(eventEntry);
             }
           } catch (error) {
@@ -294,7 +297,21 @@ export class MirrorNodeClient {
     });
   }
 
-  async getActiveUserStakes(accountId: string): Promise<any[]> {
+  async getActiveUserStakes(accountId: string): Promise<{
+    activeStakesList: any[];
+    contractTokenBalances: {
+      all: { [symbol: string]: number };
+      user: { [symbol: string]: number };
+    };
+    epochInfo: {
+      id: BigNumber;
+      endTime: BigNumber;
+    };
+    rewardInfo: {
+      allReward: BigNumber;
+      userUnclaimed: BigNumber;
+    };
+  }> {
     try {
       console.log(`🔵 Fetching staking events for user: ${accountId}`);
 
@@ -311,8 +328,21 @@ export class MirrorNodeClient {
       }/results/logs?limit=${500}&order=desc`;
 
       const contractInterface = new ethers.Interface(this.abi);
-      const activeStakes: any[] = [];
+      const activeStakesList: any[] = [];
+      const allTokenBalances: Record<string, number> = {};
+      // For user tokens
+      const userTokenBalances: Record<string, number> = {};
       const unstakeIds: number[] = [];
+      let allShares = 0;
+      let userShares = 0;
+      const epochInfo: {
+        id: BigNumber;
+        endTime: BigNumber;
+      } = { id: BigNumber(0), endTime: BigNumber(0) };
+      const rewardInfo: {
+        allReward: BigNumber;
+        userUnclaimed: BigNumber;
+      } = { allReward: BigNumber(0), userUnclaimed: BigNumber(0) };
       while (nextPageUrl) {
         console.log(`📡 Fetching logs from: ${nextPageUrl}`);
         const response = await fetch(nextPageUrl);
@@ -326,45 +356,77 @@ export class MirrorNodeClient {
               topics: log.topics,
               data: log.data,
             });
-            console.log(parsedLog?.args.user);
-            console.log(accountId);
-
-            if (parsedLog.name === "Staked" || parsedLog.name === "Unstaked") {
-              if (
+            if (
+              parsedLog &&
+              (parsedLog.name === "Staked" || parsedLog.name === "Unstaked")
+            ) {
+              const isUser =
                 parsedLog?.args.user.toLowerCase() ===
-                accountAddress.toLowerCase()
+                accountAddress.toLowerCase();
+              const tokenAddress = parsedLog?.args.tokenId;
+              let tokenSymbol = "";
+              let tokenDecimals = 0;
+              if (
+                tokenAddress === "0x0000000000000000000000000000000000000000"
               ) {
-                if (parsedLog.name === "Unstaked") {
+                tokenSymbol = "HBAR";
+                tokenDecimals = 8;
+              } else {
+                const tokenId = AccountId.fromEvmAddress(
+                  0,
+                  0,
+                  parsedLog?.args.tokenId
+                );
+                const tokenInfoResponse = await fetch(
+                  `${this.mirrorNodeUrl}/api/v1/tokens/${tokenId}`
+                );
+                const tokenInfo = await tokenInfoResponse.json();
+                tokenSymbol = tokenInfo.symbol;
+                tokenSymbol = tokenSymbol.toUpperCase();
+
+                tokenDecimals = tokenInfo.decimals;
+              }
+              if (parsedLog.name === "Unstaked") {
+                console.log("Unstake");
+                console.log(parsedLog?.args);
+                allTokenBalances[tokenSymbol] =
+                  (allTokenBalances[tokenSymbol] | 0) -
+                  Number(parsedLog?.args.amount) / 10 ** tokenDecimals;
+
+                if (isUser) {
+                  userTokenBalances[tokenSymbol] =
+                    (userTokenBalances[tokenSymbol] | 0) -
+                    Number(parsedLog?.args.amount) / 10 ** tokenDecimals;
                   const unstakeId = Number(parsedLog?.args.stakeId);
                   unstakeIds.push(unstakeId);
-                  console.log(`✅ Added Unsatke: +${unstakeId}`);
-                  console.log(`✅ Added Unsatke: +${parsedLog?.args.amount}`);
-                } else {
-                  const stakedIndex = Number(parsedLog?.args.stakeId);
+
+                  if (parsedLog?.args.early) {
+                    rewardInfo.userUnclaimed = BigNumber(
+                      (Number(rewardInfo.userUnclaimed) | 0) +
+                        Number(parsedLog?.args.penalty)
+                    );
+                  }
+                }
+
+                if (parsedLog?.args.early) {
+                  rewardInfo.allReward = BigNumber(
+                    (Number(rewardInfo.allReward) | 0) +
+                      Number(parsedLog?.args.penalty) / 10 ** 8
+                  );
+                }
+              } else {
+                console.log("Stake");
+                console.log(parsedLog?.args);
+                allTokenBalances[tokenSymbol] =
+                  (allTokenBalances[tokenSymbol] | 0) +
+                  Number(parsedLog?.args.amount) / 10 ** tokenDecimals;
+                const stakedIndex = Number(parsedLog?.args.stakeId);
+
+                if (isUser) {
+                  userTokenBalances[tokenSymbol] =
+                    (userTokenBalances[tokenSymbol] | 0) +
+                    Number(parsedLog?.args.amount) / 10 ** tokenDecimals;
                   if (!unstakeIds.includes(stakedIndex)) {
-                    const tokenAddress = parsedLog?.args.tokenId;
-                    let tokenSymbol = "";
-                    let tokenDecimals = 0;
-                    if (
-                      tokenAddress ===
-                      "0x0000000000000000000000000000000000000000"
-                    ) {
-                      tokenSymbol = "Hbar";
-                      tokenDecimals = 8;
-                    } else {
-                      const tokenId = AccountId.fromEvmAddress(
-                        0,
-                        0,
-                        parsedLog?.args.tokenId
-                      );
-                      const tokenInfoResponse = await fetch(
-                        `${this.mirrorNodeUrl}/api/v1/tokens/${tokenId}`
-                      );
-                      const tokenInfo = await tokenInfoResponse.json();
-                      tokenSymbol = tokenInfo.symbol;
-                      tokenDecimals = tokenInfo.decimals;
-                    }
-                    console.log(parsedLog?.args.stakeId);
                     const eventEntry = {
                       amount:
                         Number(parsedLog?.args.amount) / 10 ** tokenDecimals,
@@ -372,34 +434,60 @@ export class MirrorNodeClient {
                       endTime: Number(parsedLog?.args.endTime),
                       stakeId: BigNumber(parsedLog?.args.stakeId),
                       symbol: tokenSymbol,
+                      rewardShares: BigNumber(parsedLog?.args.rewa),
                     };
-                    activeStakes.push(eventEntry);
-                    console.log(`✅ Added Stake: +${eventEntry.stakeId}`);
-                  }
 
-                  // Remove unstaked amounts from active stakes
+                    activeStakesList.push(eventEntry);
+                  }
                 }
               }
+            } else if (
+              parsedLog?.name === "EpochStarted" &&
+              parsedLog?.args.endTime > epochInfo["endTime"]
+            ) {
+              epochInfo["id"] = parsedLog?.args.epochId;
+              epochInfo["endTime"] = parsedLog?.args.endTime;
+            } else if (
+              parsedLog?.name === "RewardClaimed" &&
+              parsedLog?.args.user.toLowerCase() ===
+                accountAddress.toLowerCase()
+            ) {
+              rewardInfo.userUnclaimed = BigNumber(
+                Number(rewardInfo.userUnclaimed) -
+                  Number(parsedLog?.args.totalReward)
+              );
             }
           } catch (err) {
             console.warn("⚠️ Error parsing log:", err);
           }
         }
 
-        // Check for next page
         nextPageUrl = eventData.links?.next
           ? `${this.mirrorNodeUrl}${eventData.links.next}`
           : null;
 
-        // Prevent rate limit issues
         if (nextPageUrl) await new Promise((res) => setTimeout(res, 500));
       }
-
-      console.log(`🎯 Final Active Stakes:`, activeStakes);
-      return activeStakes;
+      return {
+        activeStakesList,
+        contractTokenBalances: {
+          all: allTokenBalances,
+          user: userTokenBalances,
+        },
+        epochInfo,
+        rewardInfo,
+      };
     } catch (error) {
       console.error("🚨 Error fetching staking events:", error);
-      return [];
+      return {
+        activeStakesList: [],
+        contractTokenBalances: {
+          all: {},
+          user: {},
+        },
+        epochInfo,
+        rewardInfo,
+      };
     }
   }
 }
@@ -408,3 +496,5 @@ function evmToHederaAddress(hederaNativeAddress: string) {
   const { shard, realm, num } = EntityIdHelper.fromString(hederaNativeAddress);
   return "0x" + EntityIdHelper.toSolidityAddress([shard, realm, num]);
 }
+
+//new version

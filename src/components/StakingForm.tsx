@@ -11,18 +11,25 @@ import {
   FormControl,
   InputLabel,
   InputAdornment,
+  Box,
+  Avatar,
+  Paper,
 } from "@mui/material";
 import StakingDurationSelector from "./StakingDurationSelector";
 import { AVAILABLE_TOKENS } from "../config/supportedTokens";
 import { ConfirmationDialogProps } from "./confirmationDialog";
 import { StakeParams } from "../services/contract/HederaContractClient";
-
+import {
+  useRewardShares,
+  useTokenUsdValue,
+} from "../contexts/TokenInfoContext";
 interface StakingFormProps {
   accountInfo: any;
   setConfirmationDialogProps: (val: ConfirmationDialogProps) => void;
   contractClient: any;
   mirrorNodeClient: any;
   setStakedEvents: React.Dispatch<React.SetStateAction<any[]>>;
+  setIsLoading: any;
 }
 
 const preventInvalidKeys = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -32,7 +39,6 @@ const preventInvalidKeys = (e: React.KeyboardEvent<HTMLInputElement>) => {
 };
 
 const textFieldStyle = {
-  mb: 2,
   "& input:-webkit-autofill": {
     WebkitBoxShadow: "0 0 0 1000px #1e1e1e inset !important",
     WebkitTextFillColor: "#fff !important",
@@ -69,12 +75,13 @@ const formatDuration = (seconds: number): string => {
 // Helper to format the unlock date
 const formatUnlockDate = (secondsFromNow: number): string => {
   const unlockTime = new Date(Date.now() + secondsFromNow * 1000);
-  return unlockTime.toLocaleString(undefined, {
-    year: "numeric",
+  return unlockTime.toLocaleString("en-US", {
     month: "short",
-    day: "numeric",
+    day: "2-digit",
+    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
   });
 };
 
@@ -85,8 +92,10 @@ const StakingForm: React.FC<StakingFormProps> = React.memo(
     contractClient,
     mirrorNodeClient,
     setStakedEvents,
+    setIsLoading,
   }) => {
     const [stakeAmount, setStakeAmount] = useState("10");
+
     const [stakeToken, setStakeToken] = useState(
       "0x0000000000000000000000000000000000000000"
     );
@@ -97,14 +106,29 @@ const StakingForm: React.FC<StakingFormProps> = React.memo(
     const selectedToken = AVAILABLE_TOKENS.find(
       (t) => t.addressEVM === stakeToken
     );
-    const decimals = selectedToken?.decimals ?? 0;
 
+    const decimals = selectedToken?.decimals ?? 0;
+    const humanAmount = stakeAmount.replace(",", ".").trim(); // "0.000000"
+    const asNumber = Number(humanAmount); // 0
+    const smallestUnit = Math.round(asNumber * 10 ** decimals); // 0
+    const amountBigInt = BigInt(smallestUnit);
+    const rewardShares = useRewardShares(
+      selectedToken?.address,
+      amountBigInt,
+      BigInt(stakeDuration || 0),
+      BigInt(boostAmount || 0)
+    );
+    const tokensValue = useTokenUsdValue(selectedToken?.address, amountBigInt);
+    console.log(tokensValue);
+    console.log("Reward");
+    console.log(rewardShares);
     const normalized = stakeAmount.trim().replace(",", ".");
     const isAmountInvalid =
       normalized === "" || isNaN(Number(normalized)) || Number(normalized) <= 0;
 
     const handleStake = async () => {
       setConfirmationDialogProps((prev) => ({ ...prev, open: false }));
+      setIsLoading(true);
       if (accountInfo?.account) {
         try {
           const stakeParams: StakeParams = {
@@ -119,23 +143,24 @@ const StakingForm: React.FC<StakingFormProps> = React.memo(
               "3728e591097635310e6341af53db8b7ee42da9b3a8d918f9463ce9cca886dfbd",
             ],
           };
+          //mirrorNodeClient.waitForStakedEvent(accountInfo.account);
           const response = await contractClient.stakeTokens(stakeParams);
+
+          console.warn(response);
           if (typeof response === "string") {
             setStatus("FAILED");
           } else {
             setStatus("SUCCESS");
-            const newStake = await mirrorNodeClient.catchContractEvent(
-              accountInfo.account,
-              "Staked"
-            );
-            setStakedEvents((prev) => [...prev, newStake]);
+
+            //setStakedEvents((prev) => [...prev, newStake]);
           }
         } catch (error: any) {
-          alert(`Staking failed: ${error.message}`);
+          console.error(error);
         } finally {
           setConfirmationDialogProps((prev) => ({ ...prev, open: false }));
         }
       }
+      setIsLoading(false);
     };
 
     const getTokenBalance = (): number => {
@@ -190,14 +215,33 @@ const StakingForm: React.FC<StakingFormProps> = React.memo(
     };
 
     return (
-      <Card sx={{ mb: 2, width: 300 }}>
-        <CardContent>
+      <Card
+        sx={{
+          mb: 2,
+          width: 300,
+          height: 510,
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: "rgba(18, 18, 18, 0.85)", // 10 % białej mgły
+          backdropFilter: "blur(8px)", // właściwy blur
+          WebkitBackdropFilter: "blur(8px)", // Safari / iOS
+          border: "1px solid rgba(77, 77, 77, 0.25)", // subtelny obrys (opcjonalnie)
+        }}
+      >
+        <CardContent
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            "&:last-child": { pb: 2 },
+          }}
+        >
           <Typography variant="h6" align="center" sx={{ mb: 2 }}>
-            Stake Tokens
+            Hold Tokens
           </Typography>
 
           {/* Token Select */}
-          <FormControl fullWidth sx={textFieldStyle}>
+          <FormControl fullWidth sx={{ ...textFieldStyle, mb: 2 }}>
             <InputLabel id="select-label">Select Token</InputLabel>
             <Select
               labelId="select-label"
@@ -220,7 +264,14 @@ const StakingForm: React.FC<StakingFormProps> = React.memo(
             >
               {AVAILABLE_TOKENS.map((token) => (
                 <MenuItem key={token.address} value={token.address}>
-                  {token.name}
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <Avatar
+                      src={token.thumb}
+                      alt={"ICON"}
+                      sx={{ width: 24, height: 24 }}
+                    />
+                    {token.name}
+                  </Box>
                 </MenuItem>
               ))}
             </Select>
@@ -234,17 +285,32 @@ const StakingForm: React.FC<StakingFormProps> = React.memo(
             variant="outlined"
             value={stakeAmount}
             onChange={(e) => {
+              if (e.target.value.length > 16) return;
               const raw = e.target.value.replace(",", ".");
               setStakeAmount(raw);
-
-              setStatus(""); // Reset on change
+              setStatus(""); // reset błędu
             }}
-            error={isAmountInvalid}
-            helperText={isAmountInvalid ? "Amount must be greater than 0" : " "}
+            error={isAmountInvalid || tokensValue < 1}
+            helperText={
+              isAmountInvalid || tokensValue < 1
+                ? `Token value must be greater than $1 ($${(
+                    Math.floor(tokensValue * 100) / 100
+                  ).toFixed(2)})`
+                : `$${(Math.floor(tokensValue * 100) / 100).toFixed(2)}`
+            }
             onKeyDown={preventInvalidKeys}
             InputProps={numberInputProps}
-            sx={textFieldStyle}
-            FormHelperTextProps={{ sx: { ml: 0, alignSelf: "center" } }}
+            sx={{
+              ...textFieldStyle,
+              mb: 0,
+            }}
+            FormHelperTextProps={{
+              sx: {
+                ml: 0,
+                alignSelf: "center",
+                color: isAmountInvalid ? "error.main" : "text.secondary",
+              },
+            }}
           />
 
           {/* Duration */}
@@ -255,45 +321,111 @@ const StakingForm: React.FC<StakingFormProps> = React.memo(
               setStatus(""); // Reset on change
             }}
           />
-
-          {/* Stake Button */}
-          <Button
-            variant="contained"
-            fullWidth
-            disabled={isAmountInvalid || !accountInfo}
-            onClick={() => {
-              const durationSeconds = parseInt(stakeDuration, 10);
-              const readableDuration = formatDuration(durationSeconds);
-              const unlockDate = formatUnlockDate(durationSeconds);
-              setConfirmationDialogProps({
-                open: true,
-                title: `Confirm Staking`,
-                message: (
-                  <>
-                    You're about to stake <strong>{stakeAmount}</strong>{" "}
-                    <strong>{selectedToken?.name}</strong> for{" "}
-                    <strong>{readableDuration}</strong>.
-                    <br />
-                    <br />
-                    This amount will be locked until{" "}
-                    <strong>{unlockDate}</strong> and cannot be unstaked earlier
-                    without a penalty.
-                    <br />
-                    <br />
-                    Do you want to proceed?
-                  </>
-                ),
-                onConfirm: handleStake,
-                onCancel: () =>
-                  setConfirmationDialogProps((prev) => ({
-                    ...prev,
-                    open: false,
-                  })),
-              });
+          <Paper
+            elevation={2}
+            sx={{
+              p: 1,
+              mb: 2,
+              borderRadius: 2,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 2,
+              mt: 0,
+              opacity: 0.8,
             }}
           >
-            STAKE
-          </Button>
+            <Box
+              textAlign="center"
+              flexDirection="row"
+              display="flex"
+              flex={1}
+              justifyContent="center"
+              alignItems="center"
+              sx={{
+                gap: 1,
+              }}
+            >
+              <Typography variant="body2" color="gray" display="inline">
+                Reward Shares:&nbsp;
+              </Typography>
+              <Typography variant="body1" fontWeight="bold" display="inline">
+                {formatCompact(Number(rewardShares))}
+              </Typography>
+            </Box>
+          </Paper>
+          <Box mt="auto">
+            <Button
+              variant="contained"
+              fullWidth
+              disabled={isAmountInvalid || !accountInfo || tokensValue < 1}
+              onClick={() => {
+                const durationSeconds = parseInt(stakeDuration, 10);
+                const readableDuration = formatDuration(durationSeconds);
+                const unlockDate = formatUnlockDate(durationSeconds);
+                setConfirmationDialogProps({
+                  open: true,
+                  title: `Confirm Holding`,
+                  Content: (
+                    <>
+                      <Box display="flex" justifyContent="center" mb={2}>
+                        <Avatar
+                          src={selectedToken?.large}
+                          sx={{
+                            width: 80,
+                            height: 80,
+                            backgroundColor: "transparent",
+                          }}
+                        />
+                      </Box>
+                      <Box textAlign="center" mb={1}>
+                        <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                          <strong>{formatCompact(stakeAmount)}</strong>{" "}
+                          {selectedToken?.name}
+                        </Typography>
+                      </Box>
+                      <Box
+                        display="flex"
+                        justifyContent="space-between"
+                        alignItems="center"
+                        bgcolor="#2a2a2a"
+                        borderRadius={2}
+                        px={2}
+                        py={1}
+                        my={2}
+                        minWidth={250}
+                      >
+                        <Typography variant="body2" color="gray">
+                          Ends on:
+                        </Typography>
+                        <Typography variant="body1" fontWeight="bold">
+                          {unlockDate}
+                        </Typography>
+                      </Box>
+                      <Typography
+                        textAlign="center"
+                        variant="caption"
+                        color="gray"
+                        marginBottom={2}
+                      >
+                        Early withdrawal during the hold period
+                        <br />
+                        will result in a <strong>10% penalty</strong>.
+                      </Typography>
+                    </>
+                  ),
+                  onConfirm: handleStake,
+                  onCancel: () =>
+                    setConfirmationDialogProps((prev) => ({
+                      ...prev,
+                      open: false,
+                    })),
+                });
+              }}
+            >
+              HOLD
+            </Button>
+          </Box>
 
           {/* Status */}
           {status !== "" && (
@@ -313,3 +445,39 @@ const StakingForm: React.FC<StakingFormProps> = React.memo(
 );
 
 export default StakingForm;
+
+const formatCompact = (value: number): string => {
+  if (value === 0) return "0.0000";
+
+  const abs = Math.abs(value);
+  let suffix = "";
+  let divider = 1;
+
+  if (abs >= 1e9) {
+    suffix = "B";
+    divider = 1e9;
+  } else if (abs >= 1e6) {
+    suffix = "M";
+    divider = 1e6;
+  } else if (abs >= 1e3) {
+    suffix = "k";
+    divider = 1e3;
+  }
+
+  const shortVal = value / divider;
+
+  const maxDigits = 5;
+  const integerPart = Math.floor(Math.abs(shortVal)).toString();
+  let decimalPlaces = Math.max(0, maxDigits - integerPart.length);
+
+  let result = shortVal.toFixed(decimalPlaces);
+
+  // Jeśli mimo to przekracza 5 cyfr (bez przecinka), zmniejsz precyzję
+  while (result.replace(".", "").length > maxDigits && decimalPlaces > 0) {
+    decimalPlaces--;
+    result = shortVal.toFixed(decimalPlaces);
+  }
+
+  // Dodaj sufiks jeśli trzeba
+  return result + suffix;
+};

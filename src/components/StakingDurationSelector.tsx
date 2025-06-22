@@ -59,14 +59,21 @@ const StakingDurationSelector = ({ stakeDuration, setStakeDuration }) => {
     setSelectedOption("custom");
     setStakeDuration(durationInSeconds);
   };
-
+  /*  borderWidth: 2,
+        borderStyle: "solid",
+        borderColor: "red",*/
   return (
     <FormControl
       component="fieldset"
       fullWidth
-      sx={{ mt: 0, mb: 2, justifyContent: "center", alignContent: "center" }}
+      sx={{
+        mt: 0,
+        mb: 2,
+        justifyContent: "center",
+        alignContent: "center",
+      }}
     >
-      <FormLabel sx={{ alignSelf: "center" }}>Staking Period</FormLabel>
+      <FormLabel sx={{ alignSelf: "center" }}>Holding Period</FormLabel>
       <RadioGroup
         row
         value={selectedOption}
@@ -79,7 +86,7 @@ const StakingDurationSelector = ({ stakeDuration, setStakeDuration }) => {
             value={option.value.toString()}
             control={<Radio />}
             label={option.label}
-            sx={{ width: "120px", textAlign: "center" }}
+            sx={{ width: "110px", textAlign: "center" }}
           />
         ))}
       </RadioGroup>

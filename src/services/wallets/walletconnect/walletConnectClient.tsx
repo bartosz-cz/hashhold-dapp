@@ -160,7 +160,7 @@ class WalletConnectWallet implements WalletInterface {
 
 export const walletConnectWallet = new WalletConnectWallet();
 
-const dappConnector = new DAppConnector(
+export const dappConnector = new DAppConnector(
   metadata,
   LedgerId.fromString(hederaNetwork),
   walletConnectProjectId,
@@ -171,19 +171,19 @@ const dappConnector = new DAppConnector(
 
 // ensure walletconnect is initialized only once
 let walletConnectInitPromise: Promise<void> | undefined = undefined;
-const initializeWalletConnect = async () => {
+export const initializeWalletConnect = async () => {
   if (walletConnectInitPromise === undefined) {
     walletConnectInitPromise = dappConnector.init();
   }
   await walletConnectInitPromise;
 };
 
-export const openWalletConnectModal = async () => {
+export async function openWalletConnectModal(): Promise<void> {
   await initializeWalletConnect();
-  await dappConnector.openModal().then((x) => {
+  dappConnector.openModal().then((x) => {
     refreshEvent.emit("sync");
   });
-};
+}
 
 export const WalletConnectClient = () => {
   const { setAccountId, setIsConnected } = useContext(WalletConnectContext);

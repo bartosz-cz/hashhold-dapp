@@ -1,0 +1,69 @@
+/* kontener – pełny widok, pod UI */
+.bubbleRoot {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0; /* GUI > 0 */
+}
+.amount {
+  font-size: var(--fontSize);
+  font-weight: 600;
+  line-height: 1;
+  color: #fff;
+}
+
+/* szerokość ikony = ~40 % średnicy bańki */
+.icon {
+  width: calc(var(--size) * 0.4);
+  height: auto;
+  pointer-events: none; /* ikona nie przechwyci kliknięć (jeśli są) */
+  user-select: none;
+}
+
+/* jedna bańka */
+.bubble {
+  position: absolute;
+  bottom: calc(-1 * var(--size)); /* start tuż pod ekranem */
+  left: var(--startLeft); /* losowa pozycja X */
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  gap: 6px;
+  background: var(--bubbleColor); /* pełny fiolet, bez gradientu */
+  transform-origin: center;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column; /* układ pionowy */
+  align-items: center; /* poziome wyśrodkowanie */
+  justify-content: center; /* pionowe wyśrodkowanie */
+  text-align: center; /* wyrównanie tekstu wewnątrz */
+  white-space: pre-line; /* respektuje <br> lub \n */
+  line-height: 1;
+  /* trzy animacje – lot, bujanie, „squish” */
+  animation-name: fallRise, wobble;
+  animation-duration: var(--riseDur), 4s, 8s;
+  animation-timing-function: linear, ease-in-out, ease-in-out;
+  animation-iteration-count: 1, infinite, infinite;
+  animation-fill-mode: forwards;
+}
+
+/* lot w górę + lekki skręt + powiększanie */
+@keyframes fallRise {
+  to {
+    bottom: 110vh;
+    left: var(--endLeft); /* cel X */
+    transform: scale(var(--endScale));
+  }
+}
+
+/* delikatne bujanie */
+@keyframes wobble {
+  0%,
+  100% {
+    transform: translateX(-5%);
+  }
+  50% {
+    transform: translateX(5%);
+  }
+}
