@@ -160,6 +160,7 @@ const StakingForm: React.FC<StakingFormProps> = React.memo(
           setConfirmationDialogProps((prev) => ({ ...prev, open: false }));
         }
       }
+      console.warn("stopped stacking");
       setIsLoading(false);
     };
 

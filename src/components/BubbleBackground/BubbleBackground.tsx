@@ -1,16 +1,19 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import styles from "./BubbleBackground.module.css";
 import { AVAILABLE_TOKENS } from "../../config/supportedTokens";
 const rand = (min: number, max: number) => Math.random() * (max - min) + min;
 
-export default function BubbleBackground() {
+type BubbleBackgroundProps = {
+  lastStakes: any[];
+};
+
+const BubbleBackground: React.FC<BubbleBackgroundProps> = ({ lastStakes }) => {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const visible = useRef(true); // kontrola visibility
+  const visible = useRef(true);
+  const stakeIdx = useRef(0);
 
-  /** spawns a single bubble and schedules next one */
-  /* losowe symbole; dodaj własne, jeśli trzeba */
-  const SECTORS = 8; // ile pól w poprzek
+  const SECTORS = 8;
   const getSector = (leftPct: number) =>
     Math.min(SECTORS - 1, Math.floor(leftPct / (100 / SECTORS)));
   function sectorLoad(container: HTMLDivElement): number[] {
@@ -24,32 +27,45 @@ export default function BubbleBackground() {
     return load;
   }
 
-  /** spawns a single bubble and schedules next one */
+  // Modified spawn to use next stake from lastStakes
   const spawn = () => {
     if (!visible.current || !rootRef.current) return;
+    console.warn(lastStakes);
+    if (!lastStakes.length) return;
 
-    /* === losujemy token i kwotę === */
+    // === Get next stake (cycle through or clamp at end) ===
+    const idx = stakeIdx.current % lastStakes.length;
+    const stake = lastStakes[idx];
+    stakeIdx.current++;
+
+    // Find token (match as you store it)
     const token =
-      AVAILABLE_TOKENS[Math.floor(rand(0, AVAILABLE_TOKENS.length))];
-    const amount = Math.round(rand(10, 1_000));
+      AVAILABLE_TOKENS.find(
+        (t) =>
+          t.address === stake.tokenId ||
+          t.name === stake.symbol ||
+          t.address === stake.tokenId
+      ) || AVAILABLE_TOKENS[0];
 
-    /* === element bańki === */
+    // Amount (adjust as needed, maybe parseFloat/stake.amount if BigNumber)
+    console.warn(stake);
+    const amount = Number(stake.amount || stake.value || 0);
+    console.warn(amount);
+    // --- create bubble ---
     const span = document.createElement("span");
     span.className = styles.bubble;
     span.innerHTML = `
-    <img class="${styles.icon}" src="${token.thumb}" alt="${token.name}" />
-    <span class="${styles.amount}">${formatCompact(amount)}</span>
-  `;
+      <img class="${styles.icon}" src="${token.thumb}" alt="${token.name}" />
+      <span class="${styles.amount}">${formatCompact(amount)}</span>
+    `;
 
-    /* ── rozmiar zależny od kwoty ── */
+    // All the rest stays random!
     const size = amountToSize(amount);
     const containerWidth = rootRef.current.offsetWidth;
     const sizePercent = (size / containerWidth) * 100;
-
-    /* ── pozycja & animacja ── */
     const marginPercent = sizePercent / 2;
 
-    // wybierz sektor o najmniejszym obciążeniu
+    // random sector
     const load = sectorLoad(rootRef.current);
     const minLoad = Math.min(...load);
     const candidates = load
@@ -57,7 +73,6 @@ export default function BubbleBackground() {
       .filter((i) => i >= 0);
     const sector = candidates[Math.floor(rand(0, candidates.length))];
 
-    // losowa pozycja wewnątrz sektora
     const sectorW = 100 / SECTORS;
     const sectorMin = sector * sectorW + marginPercent;
     const sectorMax = (sector + 1) * sectorW - marginPercent;
@@ -69,7 +84,6 @@ export default function BubbleBackground() {
       Math.min(100 - marginPercent, startLeft + curve)
     );
 
-    /* ── zmienne CSS ── */
     span.style.setProperty("--size", `${size}px`);
     span.style.setProperty("--fontSize", `${size * 0.18}px`);
     span.style.setProperty("--startLeft", `${startLeft}%`);
@@ -77,26 +91,21 @@ export default function BubbleBackground() {
     span.style.setProperty("--riseDur", `${rand(12, 20)}s`);
     span.style.setProperty("--endScale", `${rand(1.1, 1.3)}`);
 
-    /* kolor bańki */
+    // random color as before
     const hue = rand(260, 275);
     span.style.setProperty("--bubbleColor", `hsl(${hue} 60% 55%)`);
 
-    /* dodajemy do DOM-u */
     rootRef.current.appendChild(span);
-
-    /* sprzątamy po animacji */
-
     span.addEventListener("animationend", () => span.remove(), { once: true });
 
-    /* plan kolejnej bańki */
+    // schedule next bubble as before
     timerRef.current = setTimeout(spawn, rand(1500, 3500));
   };
 
   useEffect(() => {
-    /* pierwsza bańka */
+    stakeIdx.current = 0; // start from the beginning on array change
     spawn();
 
-    /* pauza / wznowienie gdy karta niewidoczna */
     const visHandler = () => {
       visible.current = document.visibilityState === "visible";
       if (!visible.current && timerRef.current) {
@@ -113,10 +122,10 @@ export default function BubbleBackground() {
       if (timerRef.current) clearTimeout(timerRef.current);
       rootRef.current?.replaceChildren();
     };
-  }, []);
+  }, [lastStakes]); // re-run on stakes change!
 
   return <div ref={rootRef} className={styles.bubbleRoot} />;
-}
+};
 
 const formatCompact = (value: number): string => {
   if (value === 0) return "0.0000";
@@ -167,3 +176,5 @@ function amountToSize(
   const t = Math.min(1, log / maxLog); // 0-1 w zakresie [1 .. 10^maxLog]
   return minSize + t * (maxSize - minSize);
 }
+
+export default BubbleBackground;

@@ -32,9 +32,10 @@ import ActiveStakes from "./ActiveStakes";
 
 type ContentProps = {
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  setLastStakes: React.Dispatch<React.SetStateAction<any>>;
 };
 
-const Content: React.FC<ContentProps> = ({ setIsLoading }) => {
+const Content: React.FC<ContentProps> = ({ setIsLoading, setLastStakes }) => {
   const { accountId, walletInterface } = useWalletInterface();
 
   const [contractClient, setContractClient] = useState<HederaContractClient>(
@@ -81,9 +82,14 @@ const Content: React.FC<ContentProps> = ({ setIsLoading }) => {
     setAccountInfo(accountInfo);
     // 1. Provide a callback that re-queries the data from the service
     mirrorNodeClient.onDataUpdated = () => {
-      const { activeStakesList, contractTokenBalances, epochInfo, rewardInfo } =
-        mirrorNodeClient.getStakingData();
-
+      const {
+        activeStakesList,
+        contractTokenBalances,
+        epochInfo,
+        rewardInfo,
+        lastStakes,
+      } = mirrorNodeClient.getStakingData();
+      setLastStakes(lastStakes);
       setContractTokenBalances({ ...contractTokenBalances });
       setStakedEvents(activeStakesList);
       setEpochInfo(epochInfo);

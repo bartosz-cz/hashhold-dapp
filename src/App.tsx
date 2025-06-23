@@ -11,6 +11,7 @@ import LoadingOverlay from "./components/LoadingScreen.tsx";
 import { useState } from "react";
 function App() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [lastStakes, setLastStakes] = useState<any>([]);
   return (
     <ThemeProvider theme={theme}>
       <TokensProvider>
@@ -27,10 +28,13 @@ function App() {
               backgroundColor: "#222222",
             }}
           >
-            <BubbleBackground />
+            <BubbleBackground lastStakes={lastStakes} />
             <Box sx={{ position: "relative", zIndex: 1 }}>
               <NavBar setIsLoading={setIsLoading} />
-              <Content setIsLoading={setIsLoading} />
+              <Content
+                setIsLoading={setIsLoading}
+                setLastStakes={setLastStakes}
+              />
               <Footer />
             </Box>
           </Box>

@@ -24,6 +24,7 @@ interface StakingData {
     userUnclaimed: BigNumber;
     userClaimed: BigNumber;
   };
+  lastStakes: any[];
 }
 interface TokenInfo {
   id: string; // np. "0.0.731861"
@@ -230,6 +231,7 @@ export class StakingService {
         userUnclaimed: new BigNumber(0),
         userClaimed: new BigNumber(0),
       },
+      lastStakes: [],
     };
 
     this.provider = new ethers.WebSocketProvider(this.networkConfig.jsonRpcUrl);
@@ -251,8 +253,13 @@ export class StakingService {
       this.evmAddressCache
     );
 
-    const { activeStakesList, contractTokenBalances, epochInfo, rewardInfo } =
-      await this.fetchAllStakingData(accountId);
+    const {
+      activeStakesList,
+      contractTokenBalances,
+      epochInfo,
+      rewardInfo,
+      lastStakes,
+    } = await this.fetchAllStakingData(accountId);
 
     this.stakingData.activeStakesList = activeStakesList;
     this.stakingData.contractTokenBalances = contractTokenBalances;
@@ -260,6 +267,7 @@ export class StakingService {
     this.stakingData.epochInfo.endTime = epochInfo.endTime;
     this.stakingData.rewardInfo.allReward = rewardInfo.allReward;
     this.stakingData.rewardInfo.userUnclaimed = rewardInfo.userUnclaimed;
+    this.stakingData.lastStakes = lastStakes;
   }
 
   /**
@@ -386,6 +394,7 @@ export class StakingService {
       | null = `${this.networkConfig.mirrorNodeUrl}/api/v1/contracts/${this.networkConfig.contractId}/results/logs?limit=500&order=desc`;
 
     const parsedEvents: any[] = [];
+    const allStakedEvents: any[] = [];
 
     while (nextPageUrl) {
       const response = await fetch(nextPageUrl);
@@ -402,6 +411,21 @@ export class StakingService {
           });
           if (parsedLog) {
             parsedEvents.push(parsedLog);
+            if (parsedLog.name === "Staked") {
+              const { tokenSymbol, tokenDecimals } =
+                await this.getTokenSymbolAndDecimals(parsedLog.args.tokenId);
+              const amountBN = new BigNumber(parsedLog.args.amount.toString());
+              const divisor = new BigNumber(10).pow(tokenDecimals);
+              const numericAmountBN = amountBN.dividedBy(divisor);
+              allStakedEvents.push({
+                amount: numericAmountBN,
+                startTime: Number(parsedLog.args.startTime.toString()),
+                endTime: Number(parsedLog.args.endTime.toString()),
+                stakeId: parsedLog.args.stakeId,
+                symbol: tokenSymbol,
+                shares: Number(parsedLog.args.rewardShares),
+              });
+            }
           }
         } catch (err) {
           // unrecognized log
@@ -416,7 +440,8 @@ export class StakingService {
         nextPageUrl = null;
       }
     }
-
+    allStakedEvents.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1));
+    const lastStakes = allStakedEvents.slice(0, 50); // get last 50
     // Replay logs from oldest to newest
     for (const log of parsedEvents.reverse()) {
       const shapedLog = { name: log.name, args: { ...log.args } };
@@ -429,6 +454,7 @@ export class StakingService {
       contractTokenBalances: this.stakingData.contractTokenBalances,
       epochInfo: this.stakingData.epochInfo,
       rewardInfo: this.stakingData.rewardInfo,
+      lastStakes,
     };
   }
 
