@@ -102,7 +102,7 @@ const StakeInfo: React.FC<StakeInfoProps> = ({
       console.error(err);
     }
   };
-
+  console.warn(userUnclaimed);
   return (
     <Card
       sx={{
@@ -151,6 +151,7 @@ const StakeInfo: React.FC<StakeInfoProps> = ({
           >
             <Typography
               variant="body2"
+              color="gray"
               sx={{
                 mb: 0.2,
                 fontWeight: 500,
@@ -185,6 +186,7 @@ const StakeInfo: React.FC<StakeInfoProps> = ({
           >
             <Typography
               variant="body2"
+              color="gray"
               sx={{
                 mb: 0.2,
                 fontWeight: 500,
@@ -230,11 +232,13 @@ const StakeInfo: React.FC<StakeInfoProps> = ({
               pb: 0.5,
             }}
           >
-            <Typography sx={{ width: "33%" }}>Token</Typography>
-            <Typography sx={{ width: "33%", textAlign: "center" }}>
+            <Typography sx={{ width: "33%" }} color="gray">
+              Token
+            </Typography>
+            <Typography sx={{ width: "33%", textAlign: "center" }} color="gray">
               Yours
             </Typography>
-            <Typography sx={{ width: "33%", textAlign: "right" }}>
+            <Typography sx={{ width: "33%", textAlign: "right" }} color="gray">
               Total
             </Typography>
           </Box>
@@ -384,6 +388,7 @@ const StakeInfo: React.FC<StakeInfoProps> = ({
               <Typography
                 variant="body2"
                 sx={{ mb: 0.2, fontWeight: 500, textAlign: "center" }}
+                color="gray"
               >
                 Claimed
               </Typography>
@@ -391,7 +396,7 @@ const StakeInfo: React.FC<StakeInfoProps> = ({
                 variant="h6"
                 sx={{ fontWeight: 700, textAlign: "center" }}
               >
-                {formatCompact(userClaimed)}
+                {formatCompact(userClaimed)}ℏ
               </Typography>
             </Paper>
 
@@ -411,6 +416,7 @@ const StakeInfo: React.FC<StakeInfoProps> = ({
             >
               <Typography
                 variant="body2"
+                color="gray"
                 sx={{ mb: 0.2, fontWeight: 500, textAlign: "center" }}
               >
                 Unclaimed
@@ -419,7 +425,7 @@ const StakeInfo: React.FC<StakeInfoProps> = ({
                 variant="h6"
                 sx={{ fontWeight: 700, textAlign: "center" }}
               >
-                {formatCompact(userUnclaimed / 1e8)}
+                {formatCompact(userUnclaimed / 1e8)}ℏ
               </Typography>
             </Paper>
           </Box>
@@ -441,7 +447,7 @@ const StakeInfo: React.FC<StakeInfoProps> = ({
             color="primary"
             fullWidth
             onClick={handleClaimReward}
-            disabled={!accountInfo}
+            disabled={!accountInfo || userUnclaimed / 1e8 <= 0}
           >
             Claim Rewards
           </Button>

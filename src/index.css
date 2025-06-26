@@ -6,7 +6,7 @@
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
   background-color: #242424;
-
+  max-height: 100dvh;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -27,12 +27,23 @@ body {
   display: flex;
   place-items: center;
   min-width: 320px;
-  min-height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+@media (max-width: 650px) {
+  body {
+    overflow-y: auto; /* use scroll if you always want the bar visible */
+  }
 }
 
 h1 {
   font-size: 3.2em;
   line-height: 1.1;
+}
+
+.footer {
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.6);
 }
 
 button {

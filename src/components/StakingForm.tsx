@@ -119,7 +119,7 @@ const StakingForm: React.FC<StakingFormProps> = React.memo(
       BigInt(boostAmount || 0)
     );
     const tokensValue = useTokenUsdValue(selectedToken?.address, amountBigInt);
-    console.log(tokensValue);
+    console.warn(tokensValue);
     console.log("Reward");
     console.log(rewardShares);
     const normalized = stakeAmount.trim().replace(",", ".");
@@ -291,13 +291,15 @@ const StakingForm: React.FC<StakingFormProps> = React.memo(
               setStakeAmount(raw);
               setStatus(""); // reset błędu
             }}
-            error={isAmountInvalid || tokensValue < 1}
+            error={isAmountInvalid || (tokensValue < 1 && tokensValue != 0)}
             helperText={
-              isAmountInvalid || tokensValue < 1
+              tokensValue < 1 && tokensValue != 0
                 ? `Token value must be greater than $1 ($${(
                     Math.floor(tokensValue * 100) / 100
                   ).toFixed(2)})`
-                : `$${(Math.floor(tokensValue * 100) / 100).toFixed(2)}`
+                : tokensValue != 0
+                ? `$${(Math.floor(tokensValue * 100) / 100).toFixed(2)}`
+                : "\u00a0"
             }
             onKeyDown={preventInvalidKeys}
             InputProps={numberInputProps}

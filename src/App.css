@@ -167,12 +167,7 @@ code {
 }
 
 .footer {
-  padding-left: 24px;
-  padding-right: 24px;
-  padding-top: 24px;
-  padding-bottom: 24px;
-  margin-top: auto;
-  background-color: #222222;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .hbarLogoImg {
@@ -187,4 +182,12 @@ code {
 
 .walletconnect-modal {
   z-index: 1400; /* > Backdrop */
+}
+
+/* GLOBAL MINIMAL SCROLLBAR (Firefox) */
+html,
+body,
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 120, 130, 0.16) transparent;
 }

@@ -33,9 +33,14 @@ import ActiveStakes from "./ActiveStakes";
 type ContentProps = {
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
   setLastStakes: React.Dispatch<React.SetStateAction<any>>;
+  lastStakes: any[];
 };
 
-const Content: React.FC<ContentProps> = ({ setIsLoading, setLastStakes }) => {
+const Content: React.FC<ContentProps> = ({
+  setIsLoading,
+  setLastStakes,
+  lastStakes,
+}) => {
   const { accountId, walletInterface } = useWalletInterface();
 
   const [contractClient, setContractClient] = useState<HederaContractClient>(
@@ -61,7 +66,9 @@ const Content: React.FC<ContentProps> = ({ setIsLoading, setLastStakes }) => {
   const [confirmationDialogProps, setConfirmationDialogProps] =
     useState<ConfirmationDialogProps>(defaultConfirmationDialogProps);
   const mirrorNodeClient = new StakingService(appConfig.networks.testnet);
-
+  useEffect(() => {
+    mirrorNodeClient.fetchLastStakesGlobal();
+  }, []);
   useEffect(() => {
     if (accountId) {
       setContractClient(
@@ -71,10 +78,22 @@ const Content: React.FC<ContentProps> = ({ setIsLoading, setLastStakes }) => {
       );
       getStakes(accountId);
     } else {
+      if (lastStakes.length === 0) {
+        console.warn("start fetch");
+        // define and immediately call an async function
+        (async () => {
+          const stakes = await mirrorNodeClient.fetchLastStakesGlobal();
+          console.warn("Fetched stakes:", stakes); // <-- Should be array
+          setLastStakes(stakes);
+        })();
+      }
       resetStakingData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId]);
-
+  useEffect(() => {
+    console.warn("lastStakes state changed:", lastStakes); // This runs on state update
+  }, [lastStakes]);
   const getStakes = async (accountId: string) => {
     const accountInfo = await mirrorNodeClient.getAccountInfo(accountId);
 
@@ -135,10 +154,13 @@ const Content: React.FC<ContentProps> = ({ setIsLoading, setLastStakes }) => {
         alignItems="center"
         justifyContent="center"
         sx={{
+          minHeight: 0,
           display: "flex",
+          flex: 1,
           flexWrap: "nowrap",
           justifyContent: "center",
           width: "100%",
+          flexDirection: { xs: "column", sm: "row", md: "row" },
         }}
         gap={4}
       >
@@ -147,7 +169,6 @@ const Content: React.FC<ContentProps> = ({ setIsLoading, setLastStakes }) => {
           md={3}
           mb={0}
           sx={{
-            mt: 1,
             width: 300,
             minWidth: 300,
             maxWidth: 300,
@@ -157,7 +178,13 @@ const Content: React.FC<ContentProps> = ({ setIsLoading, setLastStakes }) => {
             item
             md={3}
             mb={0}
-            sx={{ mt: 5, width: 300, minWidth: 300, maxWidth: 300 }}
+            sx={{
+              width: 300,
+              minWidth: 300,
+              maxWidth: 300,
+              minHeight: 510,
+              marginTop: { xs: 0 },
+            }}
           >
             {view === "form" ? (
               <StakingForm
@@ -234,24 +261,44 @@ const Content: React.FC<ContentProps> = ({ setIsLoading, setLastStakes }) => {
         {/* Active Stakes section */}
         {stakedEvents.length > 0 && (
           <Grid
+            className="activeStakesContainer"
             item
             sx={{
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              height: "550px",
-              maxHeight: "550px",
-              overflowY: "auto",
+              flex: { xs: "unset" },
+              minHeight: 0,
 
-              mt: 5,
+              overflowY: {
+                xs: "none",
+                sm: "auto",
+                md: "auto",
+              },
+
+              gap: 1,
+              mt: 2,
+
+              mb: { xs: 2, sm: 4, md: 4 },
+              maxHeight: {
+                xs: "none",
+                sm: "calc(100vh - 58px - 70px)",
+                md: "calc(100vh - 58px - 70px)",
+              },
+              height: {
+                sm: "calc(100vh - 58px - 70px)",
+                md: "calc(100vh - 58px - 70px)",
+              },
             }}
           >
             <Card
               sx={{
-                mb: 2,
-
+                mb: 1,
+                mt: 0,
+                flexShrink: 0,
                 display: "flex",
+                alignSelf: "center",
                 flexDirection: "column",
                 backgroundColor: "rgba(18, 18, 18, 0.85)", // 10 % białej mgły
                 backdropFilter: "blur(8px)", // właściwy blur

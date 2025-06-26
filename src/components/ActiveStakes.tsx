@@ -23,8 +23,20 @@ const ActiveStakes: React.FC<ActiveStakesProps> = ({
   onUnstake,
 }) => {
   return (
-    <Box justifyContent="center" display="flex" flexWrap="wrap" gap={2}>
+    <Box
+      justifyContent="center"
+      display="flex"
+      flexWrap="wrap"
+      gap={2}
+      sx={{
+        maxHeight: {
+          sm: "calc(100vh - 58px - 140px)",
+          md: "calc(100vh - 58px - 140px)",
+        },
+      }}
+    >
       {stakedEvents.map((ev, index) => {
+        console.warn(ev);
         const amount = ev.amount.toString();
         const startDate = new Date(ev.startTime * 1000);
         const endDate = new Date(ev.endTime * 1000);
@@ -119,6 +131,43 @@ const ActiveStakes: React.FC<ActiveStakesProps> = ({
                     </Typography>
                     <Typography variant="body1" fontWeight="bold">
                       {formattedEnd}
+                    </Typography>
+                  </Box>
+                </Paper>
+                <Paper
+                  elevation={2}
+                  sx={{
+                    p: 1,
+
+                    borderRadius: 2,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 2,
+                    mt: 1,
+                    opacity: 0.8,
+                  }}
+                >
+                  <Box
+                    textAlign="center"
+                    flexDirection="row"
+                    display="flex"
+                    flex={1}
+                    justifyContent="center"
+                    alignItems="center"
+                    sx={{
+                      gap: 1,
+                    }}
+                  >
+                    <Typography variant="body2" color="gray" display="inline">
+                      Reward Shares:&nbsp;
+                    </Typography>
+                    <Typography
+                      variant="body1"
+                      fontWeight="bold"
+                      display="inline"
+                    >
+                      {formatCompact(Number(ev.shares))}
                     </Typography>
                   </Box>
                 </Paper>

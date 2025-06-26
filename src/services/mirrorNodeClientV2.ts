@@ -381,6 +381,45 @@ export class StakingService {
     }
   }
 
+  public async fetchLastStakesGlobal(): Promise<any[]> {
+    const contractInterface = new ethers.Interface(this.abi);
+    const url = `${this.networkConfig.mirrorNodeUrl}/api/v1/contracts/${
+      this.networkConfig.contractId
+    }/results/logs?limit=${50}&order=desc`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Failed to fetch logs from Mirror Node");
+    const data = await response.json();
+    const stakes: any[] = [];
+
+    for (const log of data.logs) {
+      try {
+        const parsedLog = contractInterface.parseLog({
+          topics: log.topics,
+          data: log.data,
+        });
+        const { tokenSymbol, tokenDecimals } =
+          await this.getTokenSymbolAndDecimals(parsedLog.args.tokenId);
+        const amountBN = new BigNumber(parsedLog.args.amount.toString());
+        const divisor = new BigNumber(10).pow(tokenDecimals);
+        const numericAmountBN = amountBN.dividedBy(divisor);
+        if (parsedLog && parsedLog.name === "Staked") {
+          // You might want to fetch token symbol/decimals for proper formatting
+          stakes.push({
+            user: parsedLog.args.user,
+            amount: numericAmountBN,
+            startTime: Number(parsedLog.args.startTime.toString()),
+            endTime: Number(parsedLog.args.endTime.toString()),
+            stakeId: parsedLog.args.stakeId,
+            tokenId: parsedLog.args.tokenId,
+            rewardShares: parsedLog.args.rewardShares,
+            symbol: tokenSymbol,
+          });
+        }
+      } catch {}
+    }
+    return stakes;
+  }
+
   /**
    * Fetch and replay logs from Mirror Node. This is your historical load.
    */

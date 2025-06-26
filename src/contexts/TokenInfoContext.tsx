@@ -224,9 +224,9 @@ export function getTokenUsdValue(token: TokenData, amount: bigint): number {
 /** React-hook: automatycznie przelicza, gdy zmieni się cena lub amount */
 export function useTokenUsdValue(tokenId: string, amount: bigint): number {
   const tokens = useTokens();
-  return useMemo(() => {
-    const token = tokens[tokenId];
-    return getTokenUsdValue(token, amount);
-    // zależności – aktualizuj, gdy zmieni się cena lub amount
-  }, [tokens, tokenId, amount.toString()]);
+
+  const token = tokens[tokenId];
+  console.warn(token);
+  return getTokenUsdValue(token, amount);
+  // zależności – aktualizuj, gdy zmieni się cena lub amount
 }

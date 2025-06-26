@@ -1,20 +1,41 @@
-import { Box } from "@mui/material";
+import { Box, Card, Typography } from "@mui/material";
 
 export default function Footer() {
   return (
-    <div></div>
-    /*<Box
+    <Box
+      className="footer"
       sx={{
-        display: "flex",
         flexDirection: "column",
+        height: "50px",
+        width: "100%",
+        mt: 2,
+        display: {
+          xs: "flex", // widoczne tylko <600 px
+          sm: "none",
+          md: "none",
+        },
       }}
     >
-      <Box className="footer">
-        <img
-          alt="An upper case H with a line through the top and the text Build on Hedera"
-          className="builtOnHederaSVG"
-        />
-      </Box>
-    </Box>*/
+      <Card
+        sx={{
+          height: "100%",
+          display: "flex",
+          width: "100%",
+          backgroundColor: "rgba(18, 18, 18, 0.85)",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Typography variant="caption" color="gray" fontSize={12}>
+          Network: Hedera Testnet
+        </Typography>
+        <Typography variant="caption" color="gray" fontSize={12}>
+          © 2025 HashHold. All rights reserved.
+        </Typography>
+      </Card>
+    </Box>
   );
 }

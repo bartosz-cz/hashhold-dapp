@@ -73,6 +73,7 @@ const NavBar: React.FC<NavBarProps> = ({ setIsLoading }) => {
         backgroundColor: "rgba(18, 18, 18, 0.85)", // ~ MUI primary z przezroczystością
         backdropFilter: "blur(8px)",
         WebkitBackdropFilter: "blur(8px)",
+        mb: 2,
       }}
     >
       <Toolbar>

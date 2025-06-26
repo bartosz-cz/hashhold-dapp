@@ -21,7 +21,7 @@ function App() {
             sx={{
               display: "flex",
               flexDirection: "column",
-              minHeight: "100vh",
+              minHeight: "100dvh",
               minWidth: "100vw",
               position: "relative",
               overflow: "hidden",
@@ -29,12 +29,36 @@ function App() {
             }}
           >
             <BubbleBackground lastStakes={lastStakes} />
-            <Box sx={{ position: "relative", zIndex: 1 }}>
+            <Box
+              sx={{
+                marginTop: 0,
+                minHeight: "100dvh",
+                maxHeight: "100dvh",
+                display: "flex",
+                flexDirection: "column",
+                position: "relative",
+                zIndex: 1,
+                overflowY: { xs: "auto", sm: "hidden", md: "hidden" },
+              }}
+            >
               <NavBar setIsLoading={setIsLoading} />
-              <Content
-                setIsLoading={setIsLoading}
-                setLastStakes={setLastStakes}
-              />
+
+              {/* THIS BOX GROWS AND CENTERS ITS CONTENT */}
+              <Box
+                sx={{
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Content
+                  setIsLoading={setIsLoading}
+                  setLastStakes={setLastStakes}
+                  lastStakes={lastStakes}
+                />
+              </Box>
+
               <Footer />
             </Box>
           </Box>

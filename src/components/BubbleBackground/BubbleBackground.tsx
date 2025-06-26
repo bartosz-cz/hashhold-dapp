@@ -30,7 +30,6 @@ const BubbleBackground: React.FC<BubbleBackgroundProps> = ({ lastStakes }) => {
   // Modified spawn to use next stake from lastStakes
   const spawn = () => {
     if (!visible.current || !rootRef.current) return;
-    console.warn(lastStakes);
     if (!lastStakes.length) return;
 
     // === Get next stake (cycle through or clamp at end) ===
@@ -48,9 +47,9 @@ const BubbleBackground: React.FC<BubbleBackgroundProps> = ({ lastStakes }) => {
       ) || AVAILABLE_TOKENS[0];
 
     // Amount (adjust as needed, maybe parseFloat/stake.amount if BigNumber)
-    console.warn(stake);
+
     const amount = Number(stake.amount || stake.value || 0);
-    console.warn(amount);
+
     // --- create bubble ---
     const span = document.createElement("span");
     span.className = styles.bubble;
