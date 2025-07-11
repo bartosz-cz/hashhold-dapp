@@ -25,7 +25,9 @@ import {
 } from "../contexts/TokenInfoContext";
 interface StakingFormProps {
   accountInfo: any;
-  setConfirmationDialogProps: (val: ConfirmationDialogProps) => void;
+  setConfirmationDialogProps: React.Dispatch<
+    React.SetStateAction<ConfirmationDialogProps>
+  >;
   contractClient: any;
   mirrorNodeClient: any;
   setStakedEvents: React.Dispatch<React.SetStateAction<any[]>>;
@@ -57,7 +59,7 @@ function formatAmountToIntegerString(input: string, decimals: number): string {
   return result || "0";
 }
 
-const formatDuration = (seconds: number): string => {
+/*const formatDuration = (seconds: number): string => {
   const weeks = Math.floor(seconds / (7 * 24 * 60 * 60));
   const years = Math.floor(weeks / 52);
   const months = Math.floor((weeks % 52) / 4);
@@ -70,7 +72,7 @@ const formatDuration = (seconds: number): string => {
     parts.push(`${remainingWeeks} ${remainingWeeks === 1 ? "week" : "weeks"}`);
 
   return parts.length > 0 ? parts.join(", ") : "2 weeks";
-};
+};*/
 
 // Helper to format the unlock date
 const formatUnlockDate = (secondsFromNow: number): string => {
@@ -90,8 +92,7 @@ const StakingForm: React.FC<StakingFormProps> = React.memo(
     accountInfo,
     setConfirmationDialogProps,
     contractClient,
-    mirrorNodeClient,
-    setStakedEvents,
+
     setIsLoading,
   }) => {
     const [stakeAmount, setStakeAmount] = useState("10");
@@ -113,13 +114,15 @@ const StakingForm: React.FC<StakingFormProps> = React.memo(
     const smallestUnit = Math.round(asNumber * 10 ** decimals); // 0
     const amountBigInt = BigInt(smallestUnit);
     const rewardShares = useRewardShares(
-      selectedToken?.address,
-      amountBigInt,
-      BigInt(stakeDuration || 0),
+      selectedToken?.address || "0",
+      parseInt(formatAmountToIntegerString(stakeAmount, decimals), 10),
+      parseInt(stakeDuration, 10),
       BigInt(boostAmount || 0)
     );
-    const tokensValue = useTokenUsdValue(selectedToken?.address, amountBigInt);
-    console.warn(tokensValue);
+    const tokensValue = useTokenUsdValue(
+      selectedToken?.address || "0",
+      amountBigInt
+    );
     console.log("Reward");
     console.log(rewardShares);
     const normalized = stakeAmount.trim().replace(",", ".");
@@ -129,6 +132,7 @@ const StakingForm: React.FC<StakingFormProps> = React.memo(
     const handleStake = async () => {
       setConfirmationDialogProps((prev) => ({ ...prev, open: false }));
       setIsLoading(true);
+      setBoostAmount("0");
       if (accountInfo?.account) {
         try {
           const stakeParams: StakeParams = {
@@ -146,7 +150,6 @@ const StakingForm: React.FC<StakingFormProps> = React.memo(
           //mirrorNodeClient.waitForStakedEvent(accountInfo.account);
           const response = await contractClient.stakeTokens(stakeParams);
 
-          console.warn(response);
           if (typeof response === "string") {
             setStatus("FAILED");
           } else {
@@ -160,7 +163,7 @@ const StakingForm: React.FC<StakingFormProps> = React.memo(
           setConfirmationDialogProps((prev) => ({ ...prev, open: false }));
         }
       }
-      console.warn("stopped stacking");
+
       setIsLoading(false);
     };
 
@@ -320,7 +323,7 @@ const StakingForm: React.FC<StakingFormProps> = React.memo(
           <StakingDurationSelector
             stakeDuration={stakeDuration}
             setStakeDuration={(val) => {
-              setStakeDuration(val);
+              setStakeDuration(String(val));
               setStatus(""); // Reset on change
             }}
           />
@@ -361,10 +364,30 @@ const StakingForm: React.FC<StakingFormProps> = React.memo(
             <Button
               variant="contained"
               fullWidth
+              sx={{
+                background: "linear-gradient(90deg, #a47aff 30%, #8F5BFF 100%)",
+                color: "#fff",
+                fontWeight: "bold",
+
+                boxShadow: "0 2px 16px 0 #8F5BFF44",
+                transition:
+                  "filter 0.3s cubic-bezier(0.4,0,0.2,1), color 0.2s, box-shadow 0.2s",
+                filter: "brightness(1)",
+                "&:hover": {
+                  filter: "brightness(0.65)",
+                  // background stays the same
+                },
+                "&.Mui-disabled": {
+                  background: (theme) =>
+                    theme.palette.action.disabledBackground,
+                  color: (theme) => theme.palette.action.disabled,
+                  boxShadow: "none",
+                },
+              }}
               disabled={isAmountInvalid || !accountInfo || tokensValue < 1}
               onClick={() => {
                 const durationSeconds = parseInt(stakeDuration, 10);
-                const readableDuration = formatDuration(durationSeconds);
+
                 const unlockDate = formatUnlockDate(durationSeconds);
                 setConfirmationDialogProps({
                   open: true,
@@ -383,7 +406,7 @@ const StakingForm: React.FC<StakingFormProps> = React.memo(
                       </Box>
                       <Box textAlign="center" mb={1}>
                         <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                          <strong>{formatCompact(stakeAmount)}</strong>{" "}
+                          <strong>{formatCompact(Number(stakeAmount))}</strong>{" "}
                           {selectedToken?.name}
                         </Typography>
                       </Box>

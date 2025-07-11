@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -24,6 +25,7 @@
     "instead": "^1.0.3",
     "process": "^0.11.10",
     "react": "^18.3.1",
+    "react-activation": "^0.13.4",
     "react-dom": "^18.3.1",
     "stream-browserify": "^3.0.0",
     "util": "^0.12.5"
@@ -47,7 +49,9 @@
     "eslint": "^9.21.0",
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.19",
+    "gh-pages": "^6.3.0",
     "globals": "^15.15.0",
+    "react-router-dom": "^7.6.2",
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.24.1",
     "vite": "^6.2.0",

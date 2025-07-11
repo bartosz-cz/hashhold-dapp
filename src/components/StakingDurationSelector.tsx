@@ -39,14 +39,22 @@ const formatDurationLabel = (weeks: number) => {
   }
 };
 
-const StakingDurationSelector = ({ stakeDuration, setStakeDuration }) => {
+type StakingDurationSelectorProps = {
+  stakeDuration: string;
+  setStakeDuration: (value: number) => void;
+};
+
+const StakingDurationSelector: React.FC<StakingDurationSelectorProps> = ({
+  stakeDuration,
+  setStakeDuration,
+}) => {
   const [selectedOption, setSelectedOption] = React.useState(
     predefinedDurations.some((opt) => opt.value === Number(stakeDuration))
       ? stakeDuration
       : "custom"
   );
 
-  const handleDurationChange = (event) => {
+  const handleDurationChange = (event: any) => {
     const value = event.target.value;
     setSelectedOption(value);
     if (value !== "custom") {
@@ -54,7 +62,7 @@ const StakingDurationSelector = ({ stakeDuration, setStakeDuration }) => {
     }
   };
 
-  const handleSliderChange = (_, newValue) => {
+  const handleSliderChange = (_: any, newValue: any) => {
     const durationInSeconds = newValue * 7 * 24 * 60 * 60;
     setSelectedOption("custom");
     setStakeDuration(durationInSeconds);
@@ -92,7 +100,7 @@ const StakingDurationSelector = ({ stakeDuration, setStakeDuration }) => {
       </RadioGroup>
       <Box sx={{ px: 2 }}>
         <Slider
-          value={Math.round(stakeDuration / (7 * 24 * 60 * 60))}
+          value={Math.round(Number(stakeDuration) / (7 * 24 * 60 * 60))}
           onChange={handleSliderChange}
           step={1}
           min={2}

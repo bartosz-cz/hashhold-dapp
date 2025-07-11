@@ -9,6 +9,12 @@ import BubbleBackground from "./components/BubbleBackground/BubbleBackground.tsx
 import Content from "./components/Content";
 import LoadingOverlay from "./components/LoadingScreen.tsx";
 import { useState } from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import About from "./pages/About.tsx";
+import Welcome from "./pages/Welcome.tsx";
+import { AliveScope, KeepAlive } from "react-activation";
+import Roadmap from "./pages/Roadmap.tsx";
+
 function App() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [lastStakes, setLastStakes] = useState<any>([]);
@@ -17,51 +23,64 @@ function App() {
       <TokensProvider>
         <AllWalletsProvider>
           <CssBaseline />
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              minHeight: "100dvh",
-              minWidth: "100vw",
-              position: "relative",
-              overflow: "hidden",
-              backgroundColor: "#222222",
-            }}
-          >
-            <BubbleBackground lastStakes={lastStakes} />
+          <AliveScope>
             <Box
               sx={{
-                marginTop: 0,
-                minHeight: "100dvh",
-                maxHeight: "100dvh",
                 display: "flex",
                 flexDirection: "column",
+                minHeight: "100dvh",
+                minWidth: "100vw",
                 position: "relative",
-                zIndex: 1,
-                overflowY: { xs: "auto", sm: "hidden", md: "hidden" },
+                overflow: "hidden",
+                backgroundColor: "#222222",
               }}
             >
-              <NavBar setIsLoading={setIsLoading} />
-
-              {/* THIS BOX GROWS AND CENTERS ITS CONTENT */}
+              <BubbleBackground lastStakes={lastStakes} />
               <Box
                 sx={{
-                  flex: 1,
+                  marginTop: 0,
+                  minHeight: "100dvh",
+                  maxHeight: "100dvh",
                   display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  flexDirection: "column",
+                  position: "relative",
+                  zIndex: 1,
+                  overflowY: { xs: "auto", sm: "auto", md: "hidden" },
                 }}
               >
-                <Content
-                  setIsLoading={setIsLoading}
-                  setLastStakes={setLastStakes}
-                  lastStakes={lastStakes}
-                />
+                <Router>
+                  <NavBar setIsLoading={setIsLoading} />
+                  <Box
+                    sx={{
+                      flex: 1,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Routes>
+                      <Route
+                        path="/hold"
+                        element={
+                          <KeepAlive>
+                            <Content
+                              setIsLoading={setIsLoading}
+                              setLastStakes={setLastStakes}
+                              lastStakes={lastStakes}
+                            />
+                          </KeepAlive>
+                        }
+                      />
+                      <Route path="/about" element={<About />} />
+                      <Route path="/" element={<Welcome />} />
+                      <Route path="/roadmap" element={<Roadmap />} />
+                    </Routes>
+                  </Box>
+                  <Footer />
+                </Router>
               </Box>
-
-              <Footer />
             </Box>
-          </Box>
+          </AliveScope>
           <LoadingOverlay open={isLoading} />
         </AllWalletsProvider>
       </TokensProvider>

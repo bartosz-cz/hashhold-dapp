@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  Grid,
   Card,
   CardContent,
   Typography,
@@ -37,7 +36,7 @@ const ActiveStakes: React.FC<ActiveStakesProps> = ({
     >
       {stakedEvents.map((ev, index) => {
         console.warn(ev);
-        const amount = ev.amount.toString();
+
         const startDate = new Date(ev.startTime * 1000);
         const endDate = new Date(ev.endTime * 1000);
 

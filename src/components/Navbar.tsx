@@ -1,59 +1,79 @@
-import { AppBar, Button, Toolbar, Typography, Box } from "@mui/material";
+import React, { useState } from "react";
+import {
+  AppBar,
+  Toolbar,
+  Box,
+  Typography,
+  Button,
+  IconButton,
+  Drawer,
+  List,
+  ListItem,
+  ListItemText,
+} from "@mui/material";
+import MenuIcon from "@mui/icons-material/Menu";
+import { NavLink } from "react-router-dom";
+import useMediaQuery from "@mui/material/useMediaQuery";
+
 import { useWalletInterface } from "../services/wallets/useWalletInterface";
 import {
-  openWalletConnectModal,
   initializeWalletConnect,
   dappConnector,
 } from "../services/wallets/walletconnect/walletConnectClient";
+
 import Logo from "../assets/logo.svg";
-import LoadingOverlay from "./LoadingScreen";
-import React, { useState, useRef } from "react";
-import useEnhancedEffect from "@mui/material/utils/useEnhancedEffect";
-import { ariaHidden } from "@mui/material/Modal/ModalManager";
+
 type NavBarProps = {
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
+/* ───────────────────────── helpery ───────────────────────── */
+const linkClass = ({ isActive }: { isActive: boolean }) =>
+  isActive ? "active" : undefined;
+
+const activeSX = {
+  color: "#8F5BFF",
+  fontWeight: "bold",
+  borderBottom: "2px solid #8F5BFF",
+  background: "rgba(143,91,255,0.10)",
+};
+
+/* ───────────────────────── komponent ─────────────────────── */
 const NavBar: React.FC<NavBarProps> = ({ setIsLoading }) => {
   const { accountId, walletInterface } = useWalletInterface();
+
+  const isMobile = useMediaQuery("(max-width:699px)");
+  const isVeryMobile = useMediaQuery("(max-width:550px)");
+
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  /* ----- connect / disconnect ----- */
   const handleConnect = async () => {
     if (accountId) return walletInterface.disconnect();
 
-    setIsLoading(true); // spinner ON
-    await initializeWalletConnect(); // bootstrap SDK
+    setIsLoading(true);
+    await initializeWalletConnect();
 
-    /* 1️⃣ MutationObserver – host <wcm-modal> pojawił się w DOM-ie */
     const hostObserver = new MutationObserver(() => {
       const host = document.querySelector("wcm-modal");
-      console.log(host);
       if (!host) return;
-
-      /* 2️⃣ przełączamy się na ResizeObserver wewnątrz shadowRoot */
       hostObserver.disconnect();
+
       const inner = host.shadowRoot
         ?.querySelector("#wcm-modal")
         ?.querySelector(".wcm-container");
-
-      if (!inner) {
-        // fallback: gdyby klasa się zmieniła
-        setIsLoading(false);
-        return;
-      }
+      if (!inner) return setIsLoading(false);
 
       const sizeObs = new ResizeObserver((e) => {
-        const h = e[0].contentRect.height;
-        console.log(h);
-        if (h > 0) {
-          setIsLoading(false); // spinner OFF – modal widoczny
+        if (e[0].contentRect.height > 0) {
+          setIsLoading(false);
           sizeObs.disconnect();
         }
       });
-      sizeObs.observe(inner as Element);
+      sizeObs.observe(inner);
     });
-
     hostObserver.observe(document.body, { childList: true, subtree: true });
 
-    /* 3️⃣ safety-nety: approve / reject / expire przed wyrenderowaniem */
     const wc: any = (dappConnector as any).walletConnectClient;
     const finish = () => {
       hostObserver.disconnect();
@@ -62,39 +82,145 @@ const NavBar: React.FC<NavBarProps> = ({ setIsLoading }) => {
     wc.once("session_approve", finish);
     wc.once("session_delete", finish);
     wc.once("proposal_expire", finish);
-
-    /* 4️⃣ otwieramy modal (nie czekamy na resolve) */
     dappConnector.openModal().catch(finish);
   };
+
+  /* ===== render ===== */
   return (
     <AppBar
       position="relative"
       sx={{
-        backgroundColor: "rgba(18, 18, 18, 0.85)", // ~ MUI primary z przezroczystością
+        backgroundColor: "rgba(18, 18, 18, 0.85)",
         backdropFilter: "blur(8px)",
         WebkitBackdropFilter: "blur(8px)",
         mb: 2,
       }}
     >
-      <Toolbar>
-        <img src={Logo} alt="Logo" style={{ height: 48 }} />
-        <Typography variant="h6" noWrap component="div" pl={1}>
-          <Box component="span" sx={{ color: "#8F5BFF", fontWeight: "bold" }}>
-            Hash
+      <Toolbar sx={{ px: { xs: 1, sm: 2 } }}>
+        {/* ---------- logo ---------- */}
+        <NavLink
+          to="/"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            textDecoration: "none",
+          }}
+        >
+          <img src={Logo} alt="Logo" style={{ height: 48 }} />
+          <Typography
+            variant="h6"
+            noWrap
+            component="div"
+            pl={1}
+            mr={3}
+            sx={{ display: "flex", alignItems: "center" }}
+          >
+            <Box component="span" sx={{ color: "#8F5BFF", fontWeight: "bold" }}>
+              Hash
+            </Box>
+            <Box component="span" sx={{ color: "#fff" }}>
+              Hold
+            </Box>
+          </Typography>
+        </NavLink>
+
+        {/* ---------- menu desktop ---------- */}
+        {!isVeryMobile && (
+          <Box sx={{ display: "flex" }}>
+            {[
+              { label: "Hold", path: "/hold" },
+              { label: "About", path: "/about" },
+              { label: "Roadmap", path: "/roadmap" },
+            ].map(({ label, path }) => (
+              <Button
+                key={label}
+                component={NavLink}
+                to={path}
+                end
+                className={linkClass}
+                sx={{
+                  height: 64,
+                  px: 3,
+                  "&.active": activeSX,
+                }}
+              >
+                {label}
+              </Button>
+            ))}
           </Box>
-          <Box component="span" sx={{ color: "white" }}>
-            Hold
-          </Box>
-        </Typography>
+        )}
+
+        {/* ---------- wallet button ---------- */}
         <Button
           variant="contained"
+          onClick={handleConnect}
           sx={{
             ml: "auto",
+            minWidth: isMobile ? 40 : 120,
+            fontSize: isMobile ? 12 : 15,
+            px: isMobile ? 1 : 3,
+            background: "linear-gradient(90deg, #a47aff 30%, #8F5BFF 100%)",
+            fontWeight: "bold",
+            color: "#fff",
+            boxShadow: "0 2px 16px 0 #8F5BFF44",
+            transition:
+              "filter .3s cubic-bezier(.4,0,.2,1),color .2s,box-shadow .2s",
+            "&:hover": { filter: "brightness(.65)" },
+            "&.Mui-disabled": {
+              background: (t) => t.palette.action.disabledBackground,
+              color: (t) => t.palette.action.disabled,
+              boxShadow: "none",
+            },
           }}
-          onClick={handleConnect}
         >
-          {accountId ? `Connected: ${accountId}` : "Connect Wallet"}
+          {accountId
+            ? isMobile
+              ? accountId
+              : `Connected: ${accountId}`
+            : isMobile
+            ? "Wallet"
+            : "Connect Wallet"}
         </Button>
+
+        {/* ---------- burger menu mobile ---------- */}
+        {isVeryMobile && (
+          <>
+            <IconButton
+              edge="end"
+              sx={{ ml: 1, color: "#8F5BFF" }}
+              onClick={() => setDrawerOpen(true)}
+            >
+              <MenuIcon />
+            </IconButton>
+
+            <Drawer
+              anchor="right"
+              open={drawerOpen}
+              onClose={() => setDrawerOpen(false)}
+            >
+              <List sx={{ width: 180, mt: 4 }}>
+                {[
+                  { label: "Hold", path: "/hold" },
+                  { label: "About", path: "/about" },
+                  { label: "Roadmap", path: "/roadmap" },
+                ].map(({ label, path }) => (
+                  <ListItem
+                    button
+                    key={label}
+                    component={NavLink}
+                    to={path}
+                    end
+                    className={linkClass}
+                    onClick={() => setDrawerOpen(false)}
+                    sx={{ "&.active": activeSX }}
+                  >
+                    <ListItemText primary={label} />
+                  </ListItem>
+                ))}
+              </List>
+            </Drawer>
+          </>
+        )}
       </Toolbar>
     </AppBar>
   );

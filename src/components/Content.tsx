@@ -10,11 +10,9 @@ import {
   Card,
 } from "@mui/material";
 
-import { MirrorNodeClient } from "../services/wallets/mirrorNodeClient";
 import { StakingService } from "../services/mirrorNodeClientV2";
 import { appConfig } from "../config";
 import { useWalletInterface } from "../services/wallets/useWalletInterface";
-import LoadingOverlay from "./LoadingScreen";
 import {
   HederaContractClient,
   WithdrawParams,
@@ -109,14 +107,18 @@ const Content: React.FC<ContentProps> = ({
         lastStakes,
       } = mirrorNodeClient.getStakingData();
       setLastStakes(lastStakes);
-      setContractTokenBalances({ ...contractTokenBalances });
+
+      setContractTokenBalances({
+        all: mapBigNumbersToNumbers(contractTokenBalances.all),
+        user: mapBigNumbersToNumbers(contractTokenBalances.user),
+      });
       setStakedEvents(activeStakesList);
       setEpochInfo(epochInfo);
       setRewardInfo(rewardInfo);
     };
 
     // 2. Subscribe to events after setting the callback
-    mirrorNodeClient.subscribeToEvents(accountInfo?.account);
+    mirrorNodeClient.subscribeToEvents();
 
     // 3. Immediately do one fetch
     mirrorNodeClient.onDataUpdated?.();
@@ -203,6 +205,7 @@ const Content: React.FC<ContentProps> = ({
                 contractTokenBalances={contractTokenBalances}
                 epochInfo={epochInfo}
                 rewardInfo={rewardInfo}
+                setIsLoading={setIsLoading}
               />
             )}
           </Grid>
@@ -428,3 +431,12 @@ const formatCompact = (value: number): string => {
   // Dodaj sufiks jeśli trzeba
   return result + suffix;
 };
+
+function mapBigNumbersToNumbers(obj: Record<string, any>) {
+  const result: Record<string, number> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    // Use .toNumber() if present, otherwise fallback
+    result[k] = typeof v?.toNumber === "function" ? v.toNumber() : Number(v);
+  }
+  return result;
+}

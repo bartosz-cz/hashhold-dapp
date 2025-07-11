@@ -5,20 +5,12 @@ import {
   Button,
   Card,
   CardContent,
-  CardHeader,
-  Divider,
   List,
   ListItem,
-  ListItemText,
-  Avatar,
   Paper,
 } from "@mui/material";
-import MonetizationOnIcon from "@mui/icons-material/MonetizationOn";
-import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
-import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
+
 import { AVAILABLE_TOKENS } from "../config/supportedTokens";
-import { StakingService } from "../services/mirrorNodeClientV2";
-import { appConfig } from "../config";
 
 interface StakeInfoProps {
   accountInfo: any;
@@ -38,37 +30,27 @@ interface StakeInfoProps {
     userClaimed: number | undefined;
     userUnclaimed: number | undefined;
   };
+  setIsLoading: any;
 }
 
 const StakeInfo: React.FC<StakeInfoProps> = ({
   accountInfo,
   contractClient,
-  mirrorNodeClient,
   contractTokenBalances,
   epochInfo,
   rewardInfo,
+  setIsLoading,
 }) => {
   // Safely convert values
   const currentEpoch = Number(epochInfo?.id || 0);
   const epochEnds = Number(epochInfo?.endTime || 0);
-  const lastEpochReward = Number(epochInfo?.epochReward || 0);
-  const totalAllReward = Number(rewardInfo?.allReward || 0);
+  // const lastEpochReward = Number(epochInfo?.epochReward || 0);
+  //const totalAllReward = Number(rewardInfo?.allReward || 0);
   const userClaimed = Number(rewardInfo?.userClaimed || 0);
   const userUnclaimed = Number(rewardInfo?.userUnclaimed || 0);
 
   // Format epoch end date
-  const formatEpochEnd = (end: number) => {
-    if (!end) return "-";
-    const date = new Date(end * 1000);
-    return date.toLocaleString(undefined, {
-      weekday: "short",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+
   const formatTimeToEpochEnd = (end: number): string => {
     if (!end) return "-";
 
@@ -97,12 +79,15 @@ const StakeInfo: React.FC<StakeInfoProps> = ({
     //service.catchEventForTx("RewardClaimed", accountInfo?.account);
 
     try {
-      const txId = await contractClient.claimReward();
+      setIsLoading(true);
+      await contractClient.claimReward();
+      setIsLoading(false);
     } catch (err) {
       console.error(err);
     }
   };
-  console.warn(userUnclaimed);
+  console.warn("uclaimed:" + userUnclaimed);
+  console.warn("uclaimed:" + Math.round(userUnclaimed / 10000));
   return (
     <Card
       sx={{
@@ -442,12 +427,31 @@ const StakeInfo: React.FC<StakeInfoProps> = ({
           {/* … */}
 
           <Button
-            sx={{ mt: "auto" }} // pushes itself to the bottom
+            sx={{
+              mt: "auto",
+              background: "linear-gradient(90deg, #a47aff 30%, #8F5BFF 100%)",
+              color: "#fff",
+              fontWeight: "bold",
+
+              boxShadow: "0 2px 16px 0 #8F5BFF44",
+              transition:
+                "filter 0.3s cubic-bezier(0.4,0,0.2,1), color 0.2s, box-shadow 0.2s",
+              filter: "brightness(1)",
+              "&:hover": {
+                filter: "brightness(0.65)",
+                // background stays the same
+              },
+              "&.Mui-disabled": {
+                background: (theme) => theme.palette.action.disabledBackground,
+                color: (theme) => theme.palette.action.disabled,
+                boxShadow: "none",
+              },
+            }}
             variant="contained"
             color="primary"
             fullWidth
             onClick={handleClaimReward}
-            disabled={!accountInfo || userUnclaimed / 1e8 <= 0}
+            disabled={!accountInfo || Math.round(userUnclaimed / 10000) == 0}
           >
             Claim Rewards
           </Button>

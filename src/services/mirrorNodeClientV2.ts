@@ -1,9 +1,7 @@
 import { ethers, EventLog, InterfaceAbi, Contract } from "ethers";
-import { PriceServiceConnection } from "@pythnetwork/price-service-client";
 import BigNumber from "bignumber.js";
 import { AccountId } from "@hashgraph/sdk";
 import { NetworkConfig } from "../config";
-import { Interface } from "ethers";
 
 /** The shape of your local in-memory data. */
 interface StakingData {
@@ -26,12 +24,7 @@ interface StakingData {
   };
   lastStakes: any[];
 }
-interface TokenInfo {
-  id: string; // np. "0.0.731861"
-  symbol: string; // np. "SAUCE"
-  decimals: number; // np. 6
-  priceUsd: number; // np. 0.0176
-}
+
 /**
  * Service that:
  * 1) Fetches logs from Mirror Node (historical).
@@ -274,75 +267,66 @@ export class StakingService {
    * Subscribe to real-time contract events. We'll only update user data
    * if `this.isUserEvent(...)` returns true.
    */
-  public subscribeToEvents(accountId: string): void {
+  public subscribeToEvents(): void {
     console.warn("subscribed");
     console.warn(this.provider);
     console.warn(this.contract);
     this.contract.on("Staked", (...rawArgs) => {
       console.warn("stacked");
       const parsedLog = { name: "Staked", args: [...rawArgs] };
-      this.processParsedLog(parsedLog, accountId);
+      this.processParsedLog(parsedLog);
     });
     this.contract.on("Unstaked", (...rawArgs) => {
       console.warn("unstacked");
       const parsedLog = { name: "Unstaked", args: [...rawArgs] };
-      this.processParsedLog(parsedLog, accountId);
+      this.processParsedLog(parsedLog);
     });
     this.contract.on("EpochStarted", (...rawArgs) => {
       console.warn("EpochStarted");
       const parsedLog = { name: "EpochStarted", args: [...rawArgs] };
-      this.processParsedLog(parsedLog, accountId);
+      this.processParsedLog(parsedLog);
     });
     this.contract.on("EpochFinalized", (...rawArgs) => {
       console.warn("EpochFinalized");
       const parsedLog = { name: "EpochFinalized", args: [...rawArgs] };
-      this.processParsedLog(parsedLog, accountId);
+      this.processParsedLog(parsedLog);
     });
     this.contract.on("RewardClaimed", (...rawArgs) => {
       console.warn("RewardClaimed");
       const parsedLog = { name: "RewardClaimed", args: [...rawArgs] };
-      this.processParsedLog(parsedLog, accountId);
+      this.processParsedLog(parsedLog);
     });
   }
 
   /**
    * The single funnel for logs (both historical & real-time).
    */
-  private async processParsedLog(
-    parsedLog: any,
-    accountId: string
-  ): Promise<void> {
+  private async processParsedLog(parsedLog: any): Promise<void> {
     console.log("[StakingService] processParsedLog ->", parsedLog);
     switch (parsedLog.name) {
       case "Staked":
-        await this.handleStakedEvent(
-          {
-            user: parsedLog.args[0],
-            amount: parsedLog.args[1],
-            startTime: parsedLog.args[2],
-            endTime: parsedLog.args[3],
-            stakeId: new BigNumber(parsedLog.args[4].toString()),
-            tokenId: parsedLog.args[5],
-            rewardShares: parsedLog.args[6],
-            event: {} as EventLog,
-          },
-          accountId
-        );
+        await this.handleStakedEvent({
+          user: parsedLog.args[0],
+          amount: parsedLog.args[1],
+          startTime: parsedLog.args[2],
+          endTime: parsedLog.args[3],
+          stakeId: new BigNumber(parsedLog.args[4].toString()),
+          tokenId: parsedLog.args[5],
+          rewardShares: parsedLog.args[6],
+          event: {} as EventLog,
+        });
         break;
 
       case "Unstaked":
-        await this.handleUnstakedEvent(
-          {
-            user: parsedLog.args[0],
-            stakeId: parsedLog.args[1],
-            unstakeAmount: parsedLog.args[2],
-            early: parsedLog.args[3],
-            penalty: parsedLog.args[4],
-            tokenId: parsedLog.args[5],
-            event: {} as EventLog,
-          },
-          accountId
-        );
+        await this.handleUnstakedEvent({
+          user: parsedLog.args[0],
+          stakeId: parsedLog.args[1],
+          unstakeAmount: parsedLog.args[2],
+          early: parsedLog.args[3],
+          penalty: parsedLog.args[4],
+          tokenId: parsedLog.args[5],
+          event: {} as EventLog,
+        });
         break;
 
       case "EpochStarted":
@@ -365,14 +349,11 @@ export class StakingService {
         break;
 
       case "RewardClaimed":
-        this.handleRewardClaimedEvent(
-          {
-            user: parsedLog.args[0],
-            totalReward: parsedLog.args[1],
-            event: {} as EventLog,
-          },
-          accountId
-        );
+        this.handleRewardClaimedEvent({
+          user: parsedLog.args[0],
+          totalReward: parsedLog.args[1],
+          event: {} as EventLog,
+        });
         break;
 
       default:
@@ -398,8 +379,8 @@ export class StakingService {
           data: log.data,
         });
         const { tokenSymbol, tokenDecimals } =
-          await this.getTokenSymbolAndDecimals(parsedLog.args.tokenId);
-        const amountBN = new BigNumber(parsedLog.args.amount.toString());
+          await this.getTokenSymbolAndDecimals(parsedLog?.args.tokenId);
+        const amountBN = new BigNumber(parsedLog?.args.amount.toString());
         const divisor = new BigNumber(10).pow(tokenDecimals);
         const numericAmountBN = amountBN.dividedBy(divisor);
         if (parsedLog && parsedLog.name === "Staked") {
@@ -440,7 +421,7 @@ export class StakingService {
       if (!response.ok) {
         throw new Error("Failed to fetch logs from Mirror Node");
       }
-      const data = await response.json();
+      const data: any = await response.json();
 
       for (const log of data.logs) {
         try {
@@ -485,7 +466,7 @@ export class StakingService {
     for (const log of parsedEvents.reverse()) {
       const shapedLog = { name: log.name, args: { ...log.args } };
       this.evmAddressCache = evmAddress; // so isUserEvent works
-      await this.processParsedLog(shapedLog, accountId);
+      await this.processParsedLog(shapedLog);
     }
 
     return {
@@ -501,19 +482,16 @@ export class StakingService {
   //                          EVENT HANDLERS
   // ─────────────────────────────────────────────────────────────────────────
 
-  private async handleStakedEvent(
-    args: {
-      user: string;
-      amount: ethers.BigNumberish;
-      startTime: ethers.BigNumberish;
-      endTime: ethers.BigNumberish;
-      stakeId: BigNumber;
-      tokenId: string;
-      rewardShares: ethers.BigNumberish;
-      event: EventLog;
-    },
-    accountId: string
-  ) {
+  private async handleStakedEvent(args: {
+    user: string;
+    amount: ethers.BigNumberish;
+    startTime: ethers.BigNumberish;
+    endTime: ethers.BigNumberish;
+    stakeId: BigNumber;
+    tokenId: string;
+    rewardShares: ethers.BigNumberish;
+    event: EventLog;
+  }) {
     const { tokenSymbol, tokenDecimals } = await this.getTokenSymbolAndDecimals(
       args.tokenId
     );
@@ -529,7 +507,7 @@ export class StakingService {
       oldAllValBN.plus(numericAmountBN);
 
     // If it’s not our user, skip user updates
-    if (!this.isUserEvent(args.user, accountId)) {
+    if (!this.isUserEvent(args.user)) {
       return this.notifyDataUpdate();
     }
 
@@ -565,18 +543,15 @@ export class StakingService {
     this.notifyDataUpdate();
   }
 
-  private async handleUnstakedEvent(
-    args: {
-      user: string;
-      stakeId: ethers.BigNumberish;
-      unstakeAmount: ethers.BigNumberish; // The 90% portion if early
-      early: boolean;
-      penalty: ethers.BigNumberish; // from the event, ignoring for non-HBAR
-      tokenId: string;
-      event: EventLog;
-    },
-    accountId: string
-  ) {
+  private async handleUnstakedEvent(args: {
+    user: string;
+    stakeId: ethers.BigNumberish;
+    unstakeAmount: ethers.BigNumberish; // The 90% portion if early
+    early: boolean;
+    penalty: ethers.BigNumberish; // from the event, ignoring for non-HBAR
+    tokenId: string;
+    event: EventLog;
+  }) {
     console.log("[StakingService] handleUnstakedEvent ->", args);
 
     const { tokenSymbol, tokenDecimals } = await this.getTokenSymbolAndDecimals(
@@ -584,7 +559,7 @@ export class StakingService {
     );
 
     // The "unstaked" portion
-    let unstakeBN = new BigNumber(args.unstakeAmount.toString());
+    const unstakeBN = new BigNumber(args.unstakeAmount.toString());
 
     // The contract-provided penalty, might be swapped to HBAR if non-HBAR
     let penaltyBN = new BigNumber(args.penalty.toString());
@@ -612,7 +587,7 @@ export class StakingService {
     }
 
     // If it's not our user, skip
-    if (!this.isUserEvent(args.user, accountId)) {
+    if (!this.isUserEvent(args.user)) {
       return this.notifyDataUpdate();
     }
 
@@ -715,13 +690,14 @@ export class StakingService {
     this.notifyDataUpdate();
   }
 
-  private handleRewardClaimedEvent(
-    args: { user: string; totalReward: ethers.BigNumberish; event: EventLog },
-    accountId: string
-  ) {
+  private handleRewardClaimedEvent(args: {
+    user: string;
+    totalReward: ethers.BigNumberish;
+    event: EventLog;
+  }) {
     console.log("[StakingService] handleRewardClaimedEvent ->", args);
 
-    if (!this.isUserEvent(args.user, accountId)) {
+    if (!this.isUserEvent(args.user)) {
       return;
     }
 
@@ -754,7 +730,7 @@ export class StakingService {
   // ─────────────────────────────────────────────────────────────────────────
 
   /** Returns true if the event's user address matches our user. */
-  private isUserEvent(eventUserAddress: string, accountId: string): boolean {
+  private isUserEvent(eventUserAddress: string): boolean {
     if (!this.evmAddressCache) {
       return false;
     }

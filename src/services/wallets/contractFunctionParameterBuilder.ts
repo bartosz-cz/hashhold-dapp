@@ -3,7 +3,6 @@
 // This is an opportunity for the adapter pattern.
 
 import { ContractFunctionParameters } from "@hashgraph/sdk";
-import { ethers } from "ethers";
 export interface ContractFunctionParameterBuilderParam {
   type: string;
   name: string;
@@ -33,14 +32,14 @@ export class ContractFunctionParameterBuilder {
       // Check if the parameter is of type 'bytesArray' and handle it accordingly
       if (param.type === "bytes[]" && param.value instanceof Uint8Array) {
         // Convert the entire Uint8Array to a single hex string if the entire parameter is a Uint8Array
-        const hexValue = ethers.utils.hexlify(param.value);
+        //const hexValue = ethers.utils.hexlify(param.value);
 
-        return hexValue;
+        return "";
       } else if (param.type === "bytes" && param.value instanceof Uint8Array) {
         // Convert Uint8Array to hex string
-        const hexValue = ethers.utils.hexlify(param.value);
+        // const hexValue = ethers.utils.hexlify(param.value);
 
-        return hexValue;
+        return "";
       } else {
         return param.value;
       }

@@ -1,11 +1,4 @@
-import {
-  ContractId,
-  Hbar,
-  TransactionReceipt,
-  TransactionId,
-  AccountAllowanceApproveTransaction,
-  TokenId,
-} from "@hashgraph/sdk";
+import { ContractId, TokenId } from "@hashgraph/sdk";
 
 import { WalletInterface } from "../wallets/walletInterface";
 import { ContractFunctionParameterBuilder } from "../wallets/contractFunctionParameterBuilder";
@@ -53,21 +46,19 @@ export interface HederaClientOptions {
  */
 export class HederaContractClient {
   private contractId: ContractId;
-  private hermesEndpoint: string;
   private walletInterface: WalletInterface | null;
 
   constructor(
     walletInterface: WalletInterface | null,
     options: HederaClientOptions
   ) {
-    const { contractId, hermesEndpoint = "https://hermes.pyth.network" } =
-      options;
+    const { contractId } = options;
     this.contractId = ContractId.fromString(contractId);
-    this.hermesEndpoint = hermesEndpoint;
+
     this.walletInterface = walletInterface;
   }
 
-  private async getPriceUpdates(priceIds: string[]): Promise<Uint8Array[]> {
+  private async getPriceUpdates(): Promise<Uint8Array[]> {
     const timestamp = Math.floor(Date.now() / 1000) - 5;
     const baseURL = "https://hermes.pyth.network/v2/updates/price";
     const id =
@@ -100,25 +91,25 @@ export class HederaContractClient {
   public async stakeTokens(params: StakeParams): Promise<object | string> {
     console.log(params);
     if (this.walletInterface !== null) {
-      let tokenDecimals = 0;
+      // let tokenDecimals = 0;
 
       const { tokenId, amount, duration, boostTokenAmount, priceIds } = params;
-      console.log(params);
+      console.log(priceIds);
       let payableValue: number = 0;
       let priceUpdateData: Uint8Array[] = [];
       if (tokenId === "0x0000000000000000000000000000000000000000") {
-        tokenDecimals = 8;
-        priceUpdateData = await this.getPriceUpdates(priceIds);
+        // tokenDecimals = 8;
+        priceUpdateData = await this.getPriceUpdates();
         payableValue = amount;
       } else {
-        tokenDecimals = 6;
+        //tokenDecimals = 6;
         await this.walletInterface.approveTokenAllowance(
           this.contractId,
           amount,
           TokenId.fromSolidityAddress(tokenId)
         );
       }
-      console.log("calllllllllllllllll");
+      console.warn("Stake duration ");
       const paramBuilder = new ContractFunctionParameterBuilder()
         .addParam({ type: "address", name: "tokenId", value: tokenId })
         .addParam({

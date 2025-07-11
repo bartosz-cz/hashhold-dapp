@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import styles from "./BubbleBackground.module.css";
 import { AVAILABLE_TOKENS } from "../../config/supportedTokens";
 const rand = (min: number, max: number) => Math.random() * (max - min) + min;

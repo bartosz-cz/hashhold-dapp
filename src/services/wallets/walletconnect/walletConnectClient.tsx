@@ -1,36 +1,16 @@
 import { WalletConnectContext } from "../../../contexts/WalletConnectContext";
 import { useCallback, useContext, useEffect } from "react";
 import { WalletInterface } from "../walletInterface";
-import { MirrorNodeClient } from "../mirrorNodeClient";
-import { ethers, ContractInterface } from "ethers";
 import {
   AccountId,
   ContractExecuteTransaction,
   ContractId,
   LedgerId,
-  TokenAssociateTransaction,
   TokenId,
-  Transaction,
-  TransactionId,
-  TransferTransaction,
   TransactionReceiptQuery,
   Client,
   Hbar,
-  FileId,
-  ContractCallQuery,
-  TransactionRecordQuery,
-  FileCreateTransaction,
   AccountAllowanceApproveTransaction,
-  AccountInfoQuery,
-  FileUpdateTransaction,
-  PublicKey,
-  SignatureMap,
-  Key,
-  PrivateKey,
-  AccountCreateTransaction,
-  KeyList,
-  FileContentsQuery,
-  AccountBalanceQuery,
 } from "@hashgraph/sdk";
 import { ContractFunctionParameterBuilder } from "../contractFunctionParameterBuilder";
 import { appConfig } from "../../../config";
@@ -40,12 +20,8 @@ import {
   HederaJsonRpcMethod,
   HederaSessionEvent,
   HederaChainId,
-  SignAndExecuteTransactionParams,
-  transactionToBase64String,
 } from "@hashgraph/hedera-wallet-connect";
 import EventEmitter from "events";
-import { networkConfig } from "../../../config/networks";
-import { sign } from "crypto";
 
 // Created refreshEvent because `dappConnector.walletConnectClient.on(eventName, syncWithWalletConnectContext)` would not call syncWithWalletConnectContext
 // Reference usage from walletconnect implementation https://github.com/hashgraph/hedera-wallet-connect/blob/main/src/lib/dapp/index.ts#L120C1-L124C9
@@ -63,9 +39,9 @@ const metadata: SignClientTypes.Metadata = {
   name: "Hashhold DApp",
   description: "smart contract call",
   url: window.location.origin,
-  icons: [window.location.origin + "/logo192.png"],
+  icons: [`${window.location.origin}/hashhold-dapp/logo.svg`],
 };
-
+console.warn(window.location.origin);
 class WalletConnectWallet implements WalletInterface {
   private getSigner() {
     if (dappConnector.signers.length === 0) {
@@ -180,7 +156,7 @@ export const initializeWalletConnect = async () => {
 
 export async function openWalletConnectModal(): Promise<void> {
   await initializeWalletConnect();
-  dappConnector.openModal().then((x) => {
+  dappConnector.openModal().then(() => {
     refreshEvent.emit("sync");
   });
 }

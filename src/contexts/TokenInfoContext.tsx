@@ -45,6 +45,7 @@ async function fetchPythToken(): Promise<TokenData> {
 
   const def = AVAILABLE_TOKENS.find((t) => t.name === "HBAR")!;
   console.log(def);
+
   return {
     tokenId: def.address,
     symbol: def.name,
@@ -58,14 +59,24 @@ async function fetchPythToken(): Promise<TokenData> {
 
 async function fetchSaucerTokens(): Promise<TokenData[]> {
   console.log("fetsh sauce");
+  let list: any[] = [];
+  try {
+    const res = await fetch("https://api.saucerswap.finance/tokens/known", {
+      headers: {
+        "x-api-key": "875e1017-87b8-4b12-8301-6aa1f1aa073b",
+        Accept: "application/json",
+      },
+    });
+    if (!res.ok) {
+      // This will now catch 429, 404, 500, etc.
+      throw new Error(`SaucerSwap API error: ${res.status} ${res.statusText}`);
+    }
+    list = (await res.json()) || [];
+  } catch (error) {
+    console.error("Failed to fetch tokens from SaucerSwap:", error);
+    // You can optionally return [], rethrow, or set some state
+  }
 
-  const res = await fetch("https://api.saucerswap.finance/tokens/known", {
-    headers: {
-      "x-api-key": "875e1017-87b8-4b12-8301-6aa1f1aa073b",
-      Accept: "application/json",
-    },
-  });
-  let list: any[] = (await res.json()) || [];
   //const list: any[] = [];
   console.log("sauce fethed");
   console.log(list);
@@ -143,8 +154,8 @@ export const TokensProvider: React.FC<{ children: React.ReactNode }> = ({
 };
 export function useRewardShares(
   tokenId: string,
-  amount: bigint,
-  duration: bigint,
+  amount: number,
+  duration: number,
   boostAmt: bigint = 0n
 ): bigint {
   console.log("new reward shares");
@@ -174,32 +185,34 @@ export function useRewardShares(
   ]);
 }
 
+/**
+ * Calculates reward shares matching contract logic.
+ */
 export function calculateRewardShares(
   token: TokenData,
-  amount: bigint,
-  duration: bigint,
+  amount: number,
+  duration: number,
   boostAmt: bigint = 0n
 ): bigint {
-  // 1) wartość stake'a w USD (uint‑like) – bez ułamków powyżej centa
-  console.log(token.priceUsd);
-  const priceMicroUsd = BigInt(Math.round(token.priceUsd * 1e6)); // 153 283n
-  console.log(priceMicroUsd);
-  const divisor = 10n ** BigInt(token.decimals); // exact 10^dec
-  console.log(divisor);
-  console.log(amount);
-  // amount is already a BigInt (raw smallest-unit amount)
-  const usdValueTimes1e6 =
-    (amount * priceMicroUsd) / BigInt(1e4 * 10 ** token.decimals);
-  console.log(usdValueTimes1e6);
-  if (usdValueTimes1e6 < 100n) {
-    // < 1 USD
-    return 0n;
-  }
-  console.log(duration);
-  // 2) rewardShares = USD × czas (sek)
-  let shares = (usdValueTimes1e6 * duration) / BigInt(1e6);
+  console.warn(token.priceUsd);
 
-  // 3) boost – identyczny algorytm co on‑chain
+  console.warn(amount);
+  console.warn(token.decimals);
+  const valueInTokens = amount / 10 ** token.decimals;
+  console.warn(valueInTokens);
+  const usdValue = valueInTokens * token.priceUsd;
+  console.warn(usdValue);
+  // Contract truncates below $1 (if < 1, no shares)
+  if (usdValue < 1) return 0n;
+  console.warn(duration);
+  // Shares = tokenValue * duration (contract uses uint math, so floor it)
+  let shares =
+    BigInt(Math.floor(usdValue)) * BigInt(Math.round(duration / 500000));
+
+  console.warn(Math.floor(usdValue));
+  console.warn(Math.round(duration / 500000));
+  console.warn(shares);
+  // Boost logic (same as on-chain)
   if (boostAmt >= 100_000_000n) {
     const boost = Math.min(
       Math.floor(Math.log2(Number(boostAmt / 100_000_000n))),
@@ -209,6 +222,7 @@ export function calculateRewardShares(
   }
   return shares;
 }
+
 export function useTokens() {
   return useContext(TokensContext).tokens;
 }

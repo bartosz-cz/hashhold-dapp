@@ -1,16 +1,5 @@
 import React from "react";
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
-  Button,
-  Box,
-  Typography,
-  IconButton,
-  Avatar,
-} from "@mui/material";
+import { Dialog, Button, Box, Typography, IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 
 export interface ConfirmationDialogProps {
@@ -140,7 +129,21 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
         gap={2}
         borderRadius={2}
       >
-        <Button variant="contained" fullWidth onClick={onConfirm}>
+        <Button
+          fullWidth
+          variant="contained"
+          sx={{
+            background: "linear-gradient(90deg, #a47aff 30%, #8F5BFF 100%)",
+            color: "#fff",
+            fontWeight: "bold",
+
+            boxShadow: "0 2px 16px 0 #8F5BFF44",
+            "&:hover": {
+              background: "linear-gradient(90deg, #c397fa 10%, #B892FF 100%)",
+            },
+          }}
+          onClick={onConfirm}
+        >
           CONFIRM
         </Button>
       </Box>

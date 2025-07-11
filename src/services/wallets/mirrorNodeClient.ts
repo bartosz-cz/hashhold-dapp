@@ -1,15 +1,10 @@
-import {
-  AccountId,
-  TransactionId,
-  EntityIdHelper,
-  TokenId,
-} from "@hashgraph/sdk";
-import { NetworkConfig } from "../../config";
-import { ethers, InterfaceAbi, EventLog } from "ethers";
-import BigNumber from "bignumber.js";
+//import { AccountId, EntityIdHelper } from "@hashgraph/sdk";
+//import { NetworkConfig } from "../../config";
+//import { ethers, InterfaceAbi } from "ethers";
+//import BigNumber from "bignumber.js";
 
 export class MirrorNodeClient {
-  mirrorNodeUrl: string;
+  /* mirrorNodeUrl: string;
   contractId: string;
   contractAddress: string;
   jsonRpcUrl: string;
@@ -489,12 +484,12 @@ export class MirrorNodeClient {
         rewardInfo,
       };
     }
-  }
+  }*/
 }
 
-function evmToHederaAddress(hederaNativeAddress: string) {
+/*function evmToHederaAddress(hederaNativeAddress: string) {
   const { shard, realm, num } = EntityIdHelper.fromString(hederaNativeAddress);
   return "0x" + EntityIdHelper.toSolidityAddress([shard, realm, num]);
-}
+}*/
 
 //new version
