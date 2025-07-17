@@ -24,6 +24,7 @@
     "events": "^3.3.0",
     "frontend": "file:",
     "instead": "^1.0.3",
+    "markdown-to-jsx": "^7.7.10",
     "process": "^0.11.10",
     "react": "^18.3.1",
     "react-activation": "^0.13.4",

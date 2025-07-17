@@ -1,124 +1,145 @@
-// AlgaeField.tsx
-import React, { useMemo } from "react";
+// Algae.tsx
+import React, { useEffect, useMemo, useState } from "react";
 
 type Props = {
-  stems?: number; // ile liści
-  segments?: number; // segmentów (im więcej, tym gładszy kontur)
-  width?: number; // maksymalna szerokość liścia
-  height?: number; // maksymalna wysokość liścia
-  light?: string; // jaśniejszy szary
-  dark?: string; // ciemniejszy szary
+  maxHeight?: number;
+  minHeightPct?: number;
+  maxWidth?: number;
+  gapMin?: number;
+  gapMax?: number;
+  light?: string;
+  dark?: string;
 };
 
-const rand = (min: number, max: number) => min + Math.random() * (max - min);
+const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
-/** Główna funkcja generująca punkty dwóch krawędzi jednego liścia */
-function generateLeaf(
+/* generowanie jednej łodygi */
+function makeLeaf(
   segments: number,
-  width: number,
-  height: number,
+  w: number,
+  h: number,
   phase = 0
-) {
-  const left: [number, number][] = [];
-  const right: [number, number][] = [];
+): [number, number][] {
+  const L: [number, number][] = [];
+  const R: [number, number][] = [];
 
-  for (let i = 0; i <= segments; i++) {
-    const t = i / segments;
-    const y = t * height;
-    const amp = width * 0.5 * (1 - t); // zwężanie ku górze
-    const offset = Math.sin(i * 0.9 + phase) * amp;
-    left.push([offset, y]);
-    right.unshift([-offset, y]); // prawa krawędź budujemy od dołu
+  /* iterate only to segments-1  ──────────────────────────── */
+  for (let i = 0; i < segments; i++) {
+    //  ←  strictly <
+    const t = i / segments; //   0 … <1
+    const y = h - t * h; //   draw from bottom
+
+    const taper = 1 - t;
+    const amp = Math.max(
+      w * 0.5 * taper * (0.7 + 0.6 * rand(0, 1) * taper),
+      15 // minimal width
+    );
+    const x = Math.sin(i * 0.9 + phase) * amp;
+
+    L.push([x, y]);
+    R.unshift([-x, y]);
   }
 
-  return [...left, ...right];
+  /* one centred tip so both edges meet in a point */
+  const tip: [number, number] = [0, 0]; //  topmost y = 0
+  L.push(tip);
+  R.unshift(tip);
+
+  return [...L, ...R]; // ready for SVG path
 }
-
 export default function Algae({
-  stems = 5,
-  segments = 18,
-  width = 60,
-  height = 360,
-  light = "#a0a0a0",
-  dark = "#4b4b4b",
+  maxHeight = 1000,
+  minHeightPct = 0.7,
+  maxWidth = 250,
+  gapMin = 80,
+  gapMax = 220,
+  light = "#743AC3",
+  dark = "#2A2A2A",
 }: Props) {
-  /* 1️⃣ raz przelicz kształty, żeby nie losowały się przy każdym renderze */
+  /* szerokość ekranu → liczba łodyg */
+  const [vw, setVw] = useState(() => window.innerWidth);
+  useEffect(() => {
+    const f = () => setVw(window.innerWidth);
+    window.addEventListener("resize", f);
+    return () => window.removeEventListener("resize", f);
+  }, []);
+
+  const stems = Math.ceil(vw / ((gapMin + gapMax) / 2));
+
+  /* generujemy tylko raz na zmianę konfiguracji */
   const leaves = useMemo(() => {
-    const arr: {
-      d: string;
-      gradId: string;
-      translateX: number;
-      translateY: number;
-      shadowSide: "left" | "right";
-    }[] = [];
+    let x = 0;
+    return Array.from({ length: stems }).map((_, i) => {
+      const h = rand(minHeightPct, 1) * maxHeight * 0.95;
+      const w = rand(maxWidth * 0.6, maxWidth);
+      const seg = Math.max(12, Math.round(h / 40));
+      const phase = rand(0, Math.PI * 2);
 
-    for (let i = 0; i < stems; i++) {
-      const pts = generateLeaf(segments, width, height, i);
-      const d = pts
-        .map(
-          ([x, y], idx) => `${idx ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`
-        )
-        .join(" ")
-        .concat(" Z");
+      const d =
+        makeLeaf(seg, w, h, phase)
+          .map(
+            ([X, Y], idx) => `${idx ? "L" : "M"}${X.toFixed(1)},${Y.toFixed(1)}`
+          )
+          .join(" ") + " Z";
 
-      arr.push({
+      const leaf = {
         d,
-        gradId: `leafGrad${i}`,
-        translateX: i * (width + 50),
-        translateY: rand(10, 40),
-        shadowSide: i % 2 === 0 ? "left" : "right",
-      });
-    }
-    return arr;
-  }, [stems, segments, width, height]);
+        h,
+        xMid: x + w / 2,
+        gradId: `g${i}`,
+        side: i % 2 ? "left" : "right",
+      };
+      x += rand(gapMin, gapMax) + w;
+      return leaf;
+    });
+  }, [stems, maxHeight, maxWidth, gapMin, gapMax, minHeightPct]);
 
-  /* 2️⃣ SVG */
+  const viewW = leaves.length ? leaves.at(-1)!.xMid + maxWidth : vw;
+
+  /* ---------- RENDER ---------- */
   return (
     <svg
       width="100%"
-      height={height}
-      viewBox={`0 0 ${stems * (width + 50)} ${height}`}
-      style={{ overflow: "visible" }}
+      height={maxHeight}
+      viewBox={`0 0 ${viewW} ${-maxHeight}`}
+      style={{
+        position: "absolute",
+        inset: 0,
+
+        overflow: "hidden",
+        pointerEvents: "none",
+      }}
     >
       <defs>
-        {/* filtr drop-shadow jeden wspólny  */}
-        <filter id="leafShadow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow
-            dx="0"
-            dy="4"
-            stdDeviation="4"
-            floodOpacity="0.35"
-            floodColor="#000"
-          />
+        <filter id="shadow" x="-25%" y="-25%" width="150%" height="150%">
+          <feDropShadow dy="4" stdDeviation="4" floodOpacity="0.35" />
         </filter>
 
-        {/* gradieny liści – każdy własny ID */}
         {leaves.map(({ gradId }) => (
           <linearGradient key={gradId} id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={light} />
-            <stop offset="100%" stopColor={dark} />
+            <stop offset="0%" stopColor={"rgb(49, 25, 83)"} />
+
+            <stop offset="90%" stopColor={"#2A2A2A"} />
           </linearGradient>
         ))}
       </defs>
 
-      {/* rysowanie liści */}
-      {leaves.map(({ d, gradId, translateX, translateY, shadowSide }) => (
+      {leaves.map(({ d, gradId, xMid, h, side }) => (
         <g
           key={gradId}
-          transform={`translate(${translateX} ${translateY})`}
-          filter="url(#leafShadow)"
+          transform={`translate(${xMid} ${maxHeight - h})`} /* ⬅ bazuje na h */
+          filter="url(#shadow)"
         >
           <path
             d={d}
             fill={`url(#${gradId})`}
             stroke="#000"
-            strokeWidth="1"
-            strokeOpacity="0.15"
+            strokeWidth={1}
+            strokeOpacity={0.12}
             style={{
-              /* cień tylko z jednej strony: maskujemy dropp-shadow */
               filter: `drop-shadow(${
-                shadowSide === "left" ? "-" : ""
-              }6px 4px 6px rgba(0,0,0,.35))`,
+                side === "left" ? "-" : ""
+              }5px 3px 5px rgba(0,0,0,.35))`,
             }}
           />
         </g>

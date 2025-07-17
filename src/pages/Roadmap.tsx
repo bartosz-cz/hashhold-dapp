@@ -13,7 +13,7 @@ import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
-
+import Algae from "../components/AlgaeBackground/Algae";
 import Tooltip from "@mui/material/Tooltip";
 import useMediaQuery from "@mui/material/useMediaQuery";
 export default function Roadmap() {
@@ -58,8 +58,8 @@ export default function Roadmap() {
       icon: <RadioButtonUncheckedIcon />,
       title: "About Page",
       desc: "In-depth explanation of how the service works.",
-      done: false,
-      progress: 95,
+      done: true,
+      progress: 100,
     },
     {
       icon: <RadioButtonUncheckedIcon />,
@@ -261,8 +261,12 @@ export default function Roadmap() {
           p: 1.5,
           display: compact ? "block" : "flex",
           gap: 1.5,
+          zIndex: 100,
           borderRadius: 2,
-          backgroundColor: theme.palette.background.paper,
+          backdropFilter: "blur(5px)", // ← the actual blur
+          WebkitBackdropFilter: "blur(5px)",
+          //backgroundColor: theme.palette.background.paper,
+          backgroundColor: "rgba(14, 14, 14, 0.84)",
           border: `2px solid ${
             done
               ? side === "left"
@@ -447,21 +451,36 @@ export default function Roadmap() {
           paddingTop: 2,
 
           backgroundColor: "#222222",
-          zIndex: 0,
         }}
       >
+        {!isSmall && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              overflow: "hidden",
+              height: svgHeight,
+              zIndex: 10,
+              marginTop: 15,
+            }}
+          >
+            <Algae maxHeight={svgHeight + 100} light="#c8c8c8" dark="#606060" />
+          </div>
+        )}
         <svg
           width={"100%"}
           height={svgHeight}
           viewBox={`0 0 ${window.innerWidth} ${svgHeight}`}
-          preserveAspectRatio="xMidYMin meet"
+          preserveAspectRatio="xMidYMax meet"
           style={{
             display: "block",
+            position: "relative",
             margin: "0",
             pointerEvents: "none",
             justifyItems: "center",
             alignItems: "center",
-            backgroundColor: "#222222",
+            backgroundColor: "transparent",
+            zIndex: 10,
           }}
         >
           <defs>
@@ -522,10 +541,6 @@ export default function Roadmap() {
             stroke="url(#fadePurple)"
             strokeWidth={4}
           />
-          {/* left branch */}
-          {/* left branch */}
-          {/* left branch – smooth left, then smooth down */}
-          {/* lewa gałąź – całość w jednym <path> */}
           <path
             d={branchPath("left", yEndLeft)}
             fill="none"
@@ -598,6 +613,7 @@ export default function Roadmap() {
             />
           ))}
         </svg>
+
         <Box
           component="form"
           onSubmit={(e) => {
@@ -614,9 +630,9 @@ export default function Roadmap() {
             backdropFilter: "blur(6px)",
             borderTopLeftRadius: 2,
             borderTopRightRadius: 2,
-            boxShadow: "0 0 8px rgba(0, 0, 0, 0.53)", // 💜 fioletowy cień
+            boxShadow: "0 0 8px rgba(0, 0, 0, 0.53)",
             transition: "box-shadow 0.3s ease-in-out",
-
+            zIndex: 100,
             display: "flex",
             flexDirection: { xs: "column", sm: "row" },
             alignItems: { xs: "center", sm: "center", md: "center" },

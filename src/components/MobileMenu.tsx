@@ -65,10 +65,11 @@ export default function MobileMenu() {
         PaperProps={{
           sx: {
             mt: 1,
-            width: 180,
+            width: 110,
             backgroundColor: "#2A2A2A",
             border: "1px solid #444",
             boxShadow: "0 4px 14px rgba(0,0,0,.45)",
+            justifyItems: "center",
           },
         }}
       >
@@ -89,6 +90,7 @@ export default function MobileMenu() {
                       color: "#8F5BFF",
                       fontWeight: 600,
                     },
+                    justifyItems: "center",
                   },
                 }}
               >
