@@ -14,7 +14,8 @@ import About from "./pages/About.tsx";
 import Welcome from "./pages/Welcome.tsx";
 import { AliveScope, KeepAlive } from "react-activation";
 import Roadmap from "./pages/Roadmap.tsx";
-
+import "@fontsource/orbitron";
+import "@fontsource/orbitron/800.css";
 function App() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [lastStakes, setLastStakes] = useState<any>([]);
@@ -46,6 +47,7 @@ function App() {
                   position: "relative",
                   zIndex: 1,
                   overflowY: { xs: "auto", sm: "auto", md: "hidden" },
+                  overflowX: "hidden",
                 }}
               >
                 <Router>

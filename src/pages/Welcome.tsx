@@ -38,7 +38,7 @@ export default function Welcome() {
     if (!el) return;
 
     // initial read
-    setFirstBoxHeight(el.offsetHeight);
+    setFirstBoxHeight(el.offsetHeight + 800);
 
     // keep it in sync when cards wrap / window resizes
     const ro = new ResizeObserver(([entry]) => {
@@ -89,22 +89,32 @@ export default function Welcome() {
   const cx = w / 2;
   console.warn(firstBoxHeight);
   return (
-    <Box sx={{ position: "relative" }}>
+    <Box
+      sx={{
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        minHeight: "calc(100vh - 100px)",
+        overflow: "none",
+        alignItems: "center",
+        alignContent: "center",
+      }}
+    >
       <Box
+        ref={firstBoxRef}
         display="flex"
         alignItems="center"
         justifyContent="start"
         sx={{
           flexDirection: "column",
           top: "25px",
-          overflowY: "none",
+          overflow: "none",
           "@media (min-width:700px)": {
             top: "0px",
           },
         }}
       >
         <Box
-          ref={firstBoxRef}
           display="flex"
           alignItems="center"
           justifyContent="center"
@@ -114,7 +124,7 @@ export default function Welcome() {
           sx={{
             width: "100%",
             flexDirection: "column",
-            overflowY: "none",
+            overflow: "none",
 
             minHeight: 0,
             paddingTop: "100px",
@@ -142,12 +152,16 @@ export default function Welcome() {
                   backdropFilter: "blur(8px)",
                   border: "1px solid rgba(77, 77, 77, 0.25)",
                   width: "300px",
-                  height: "410px",
+                  height: "480px",
+                  "@media (min-width:700px)": {
+                    width: "360px",
+                    height: "430px",
+                  },
                   minHeight: "410px", // if you want minimum size
                   p: 2,
                   alignItems: "center",
                   position: "relative",
-                  overflow: "visible",
+
                   flexShrink: 0, // <--- THIS IS IMPORTANT for scroll!
                 }}
               >
@@ -162,7 +176,15 @@ export default function Welcome() {
                 >
                   <img src={step.icon} alt="" />
                 </Box>
-                <Box sx={{ textAlign: "center", width: "250px" }}>
+                <Box
+                  sx={{
+                    textAlign: "center",
+                    width: "250px",
+                    "@media (min-width:700px)": {
+                      width: "310px",
+                    },
+                  }}
+                >
                   <Typography
                     variant="h6"
                     sx={{ fontWeight: "bold", color: "#8F5BFF", mb: 2 }}
@@ -177,6 +199,9 @@ export default function Welcome() {
                         display: "flex",
                         alignItems: "center",
                         mb: 1,
+                        "@media (min-width:700px)": {
+                          mb: 2,
+                        },
                       }}
                     >
                       <CheckCircleIcon
@@ -290,22 +315,32 @@ export default function Welcome() {
       <Box
         sx={{
           position: "absolute",
-          top: "25px",
+          top: "-45px",
           "@media (min-width:700px)": {
-            top: "20px",
+            top: "-60px",
+            height: firstBoxHeight
+              ? `${Math.max(firstBoxHeight, window.innerHeight - 30)}px`
+              : "100vh",
           },
           left: 0,
           width: "100vw",
-          inset: 0,
-          height: firstBoxHeight ?? "auto",
-          overflow: "visible",
+
+          height: firstBoxHeight
+            ? `${Math.max(firstBoxHeight + 60, window.innerHeight)}px`
+            : "100vh",
+          overflow: "hidden",
           zIndex: -100,
+          display: "flex",
+          flexDirection: "column",
+          justifyItems: "start",
+          alignItems: "start",
           pointerEvents: "none",
+          backgroundColor: "green",
+          background: "red",
         }}
       >
         <Box
           sx={{
-            position: "fixed",
             top: 48,
             "@media (min-width:700px)": {
               top: 48,
@@ -315,18 +350,26 @@ export default function Welcome() {
             },
             left: 0,
             width: "100vw",
-            height: "100vh",
-            minHeight: "1000px",
-            overflow: "visible",
+            flexDirection: "column",
+            justifyItems: "start",
+            alignItems: "start",
+
+            backgroundColor: "red",
             zIndex: -1,
             pointerEvents: "none",
           }}
         >
           <svg
             width="100%"
-            height="auto"
             viewBox={`0 ${-topOvershoot} ${w} ${h + topOvershoot}`}
-            style={{ backgroundColor: "#222222" }}
+            style={{
+              backgroundColor: "#222222",
+
+              minHeight: "1000px",
+              height: firstBoxHeight
+                ? `${Math.max(firstBoxHeight + 60, window.innerHeight)}px`
+                : "100vh",
+            }}
           >
             <defs>
               {/* pełny okrąg jako path do textPath */}

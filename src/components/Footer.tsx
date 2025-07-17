@@ -8,7 +8,7 @@ export default function Footer() {
         flexDirection: "column",
         height: "50px",
         width: "100%",
-        mt: 2,
+
         display: {
           xs: "flex", // widoczne tylko <600 px
           sm: "none",
@@ -27,6 +27,7 @@ export default function Footer() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
+          p: 1,
         }}
       >
         <Typography variant="caption" color="gray" fontSize={12}>

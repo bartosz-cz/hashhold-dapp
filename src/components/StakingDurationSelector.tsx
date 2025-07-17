@@ -86,7 +86,7 @@ const StakingDurationSelector: React.FC<StakingDurationSelectorProps> = ({
         row
         value={selectedOption}
         onChange={handleDurationChange}
-        sx={{ justifyContent: "center" }}
+        sx={{ justifyContent: "center", marginLeft: 0.5, marginRight: -1.5 }}
       >
         {predefinedDurations.map((option) => (
           <FormControlLabel
@@ -94,7 +94,7 @@ const StakingDurationSelector: React.FC<StakingDurationSelectorProps> = ({
             value={option.value.toString()}
             control={<Radio />}
             label={option.label}
-            sx={{ width: "110px", textAlign: "center" }}
+            sx={{ width: "126px", textAlign: "center" }}
           />
         ))}
       </RadioGroup>

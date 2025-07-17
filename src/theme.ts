@@ -6,7 +6,10 @@ const trackColor = "rgb(32, 32, 32)";
 
 export const theme = createTheme({
   typography: {
-    fontFamily: '"Styrene A Web", "Helvetica Neue", Sans-Serif',
+    fontFamily: "Orbitron, sans-serif",
+    fontWeightRegular: 900,
+    fontWeightMedium: 900,
+    fontWeightBold: 900,
   },
   palette: {
     mode: "dark",

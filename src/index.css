@@ -34,6 +34,7 @@ body {
 @media (max-width: 650px) {
   body {
     overflow-y: auto; /* use scroll if you always want the bar visible */
+    overflow-x: hidden;
   }
 }
 

@@ -84,7 +84,7 @@ const BubbleBackground: React.FC<BubbleBackgroundProps> = ({ lastStakes }) => {
     );
 
     span.style.setProperty("--size", `${size}px`);
-    span.style.setProperty("--fontSize", `${size * 0.18}px`);
+    span.style.setProperty("--fontSize", `${size * 0.15}px`);
     span.style.setProperty("--startLeft", `${startLeft}%`);
     span.style.setProperty("--endLeft", `${endLeft}%`);
     span.style.setProperty("--riseDur", `${rand(12, 20)}s`);

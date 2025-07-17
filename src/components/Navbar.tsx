@@ -14,7 +14,7 @@ import {
 import MenuIcon from "@mui/icons-material/Menu";
 import { NavLink } from "react-router-dom";
 import useMediaQuery from "@mui/material/useMediaQuery";
-
+import MobileMenu from "./MobileMenu";
 import { useWalletInterface } from "../services/wallets/useWalletInterface";
 import {
   initializeWalletConnect,
@@ -94,6 +94,7 @@ const NavBar: React.FC<NavBarProps> = ({ setIsLoading }) => {
         backdropFilter: "blur(8px)",
         WebkitBackdropFilter: "blur(8px)",
         mb: 2,
+        zIndex: 100,
       }}
     >
       <Toolbar sx={{ px: { xs: 1, sm: 2 } }}>
@@ -140,6 +141,7 @@ const NavBar: React.FC<NavBarProps> = ({ setIsLoading }) => {
                 className={linkClass}
                 sx={{
                   height: 64,
+                  width: 100,
                   px: 3,
                   "&.active": activeSX,
                 }}
@@ -183,44 +185,7 @@ const NavBar: React.FC<NavBarProps> = ({ setIsLoading }) => {
         </Button>
 
         {/* ---------- burger menu mobile ---------- */}
-        {isVeryMobile && (
-          <>
-            <IconButton
-              edge="end"
-              sx={{ ml: 1, color: "#8F5BFF" }}
-              onClick={() => setDrawerOpen(true)}
-            >
-              <MenuIcon />
-            </IconButton>
-
-            <Drawer
-              anchor="right"
-              open={drawerOpen}
-              onClose={() => setDrawerOpen(false)}
-            >
-              <List sx={{ width: 180, mt: 4 }}>
-                {[
-                  { label: "Hold", path: "/hold" },
-                  { label: "About", path: "/about" },
-                  { label: "Roadmap", path: "/roadmap" },
-                ].map(({ label, path }) => (
-                  <ListItem
-                    button
-                    key={label}
-                    component={NavLink}
-                    to={path}
-                    end
-                    className={linkClass}
-                    onClick={() => setDrawerOpen(false)}
-                    sx={{ "&.active": activeSX }}
-                  >
-                    <ListItemText primary={label} />
-                  </ListItem>
-                ))}
-              </List>
-            </Drawer>
-          </>
-        )}
+        {isVeryMobile && <MobileMenu />}
       </Toolbar>
     </AppBar>
   );

@@ -13,6 +13,7 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
+    "@fontsource/orbitron": "^5.2.6",
     "@pythnetwork/hermes-client": "^2.0.0",
     "@pythnetwork/price-service-client": "^1.9.0",
     "bignumber": "^1.1.0",
